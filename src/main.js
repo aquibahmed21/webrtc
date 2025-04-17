@@ -1,15 +1,154 @@
-import './style.css'
+import './style.css';
 
 document.querySelector('#app').innerHTML = `
-  <div class="copy">Send your URL to a friend to start a video call</div>
-  <video id="localVideo" autoplay muted></video>
-  <video id="remoteVideo" autoplay></video>
-`
+   <div class="Channel">
+    <video id="remoteVideo" autoplay></video>
+    <video id="localVideo" autoplay muted></video>
+    </div>
+
+    <div class="controls" id="controls">
+      <button id="start">Start</button>
+      <button id="muteAudio" disabled>Mute Audio</button>
+      <button id="muteVideo" disabled>Mute Video</button>
+      <button id="switchCamera" disabled>Switch Camera</button>
+      <button id="hangup" disabled>Hang Up</button>
+    </div>
+
+    <label for="quality">Select quality:</label>
+    <select id="quality">
+      <option value="160x120">160x120</option>
+      <option value="320x240">320x240</option>
+      <option value="640x480">640x480</option>
+      <option value="1280x720">1280x720</option>
+      <option value="1920x1080">1920x1080</option>
+    </select>
+
+    <label for="framerate">Select framerate:</label>
+    <select id="framerate">
+      <option value="10">10</option>
+      <option value="20">20</option>
+      <option value="30">30</option>
+      <option value="60">60</option>
+    </select>
+`;
+
+let localstream = null;
+let localheight = 0;
+let localwidth = 0;
+let localframeRate = 0;
+
+await getMaxSupportedVideoConstraintsWithPermissions();
+
+const quality = document.querySelector('#quality');
+const framerate = document.querySelector('#framerate');
+
+const controls = document.querySelector('#controls');
+controls.addEventListener('click', async event => {
+  switch (event.target.id) {
+    case 'start':
+      {
+        event.target.disabled = true;
+        const [width, height] = quality.value.split('x').map(Number);
+        const frameRate = Number(framerate.value);
+        await updateStream(width, height, frameRate);
+        localVideo.srcObject = localstream;
+        localstream.getTracks().forEach(track => pc.addTrack(track, localstream));
+        event.target.nextElementSibling.disabled = false;
+        event.target.nextElementSibling.nextElementSibling.disabled = false;
+        event.target.nextElementSibling.disabled = false;
+        event.target.nextElementSibling.nextElementSibling.nextElementSibling.nextElementSibling.disabled = false;
+      }
+      break;
+    case 'muteAudio':
+      event.target.textContent = localstream.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio';
+      localstream.getAudioTracks()[0].enabled = !localstream.getAudioTracks()[0].enabled;
+      break;
+    case 'muteVideo':
+      event.target.textContent = localstream.getVideoTracks()[0].enabled ? 'Unmute Video' : 'Mute Video';
+      localstream.getVideoTracks()[0].enabled = !localstream.getVideoTracks()[0].enabled;
+      break;
+    case 'switchCamera':
+      localstream.getVideoTracks()[0].getSettings().facingMode = localstream.getVideoTracks()[0].getSettings().facingMode === 'user' ? 'environment' : 'user';
+      break;
+    case 'hangup':
+      localVideo.srcObject = null;
+      pc.close();
+      localstream.getTracks().forEach(track => track.stop());
+      localstream = null;
+      event.target.disabled = true;
+      event.target.previousElementSibling.disabled = true;
+      event.target.previousElementSibling.previousElementSibling.disabled = true;
+      event.target.previousElementSibling.previousElementSibling.previousElementSibling.disabled = true;
+      event.target.previousElementSibling.previousElementSibling.previousElementSibling.previousElementSibling.disabled = false;
+      break;
+  }
+});
+
+async function getMediaStream(width, height, frameRate) {
+  try {
+    const constraints = {
+      video: {
+        width: { exact: width },
+        height: { exact: height },
+        frameRate: { exact: frameRate }
+      },
+      audio: true // adjust as needed
+    };
+
+    const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+    return newStream;
+  } catch (error) {
+    console.error("Failed to get media stream:", error);
+    return null;
+  }
+}
+
+async function updateStream(width, height, frameRate) {
+  localheight = height;
+  localwidth = width;
+  localframeRate = frameRate;
+  const newStream = await getMediaStream(width, height, frameRate);
+  if (!newStream) return false;
+
+  const newVideoTrack = newStream.getVideoTracks()[0];
+
+  // Replace track in the existing stream
+  if (localstream) {
+    const oldTrack = localstream.getVideoTracks()[0];
+    if (oldTrack) oldTrack.stop(); // stop the old track
+    localstream.removeTrack(oldTrack);
+    localstream.addTrack(newVideoTrack);
+  } else {
+    localstream = newStream;
+  }
+  return true;
+}
+
+quality.addEventListener('change', async event => {
+  if (!localstream) return;
+  const [width, height] = event.target.value.split('x').map(Number);
+  if (!await updateStream(width, height, localframeRate)) return;
+
+  // pc.getSenders().forEach(sender => {
+  //   if (sender.track.kind == "video")
+  //     sender.setTrackParameters({ 'maxWidth': width, 'maxHeight': height });
+  // });
+});
+framerate.addEventListener('change', async event => {
+  if (!localstream) return;
+  const framerate = Number(event.target.value);
+  if (!await updateStream(localwidth, localheight, framerate)) return;
+
+  // pc.getSenders().forEach(sender => {
+  //   if (sender.track.kind == "video")
+  //   sender.setTrackParameters({ 'maxFramerate': framerate });
+  // });
+});
 
 // Generate random room name if needed
-if (!location.hash) {
+if (!location.hash)
   location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
-}
+
 const roomHash = location.hash.substring(1);
 
 // TODO: Replace with your own channel ID
@@ -25,7 +164,7 @@ let room;
 let pc;
 
 
-function onSuccess() {};
+function onSuccess() { };
 function onError(error) {
   console.error(error);
 };
@@ -65,7 +204,7 @@ function startWebRTC(isOfferer) {
   // message to the other peer through the signaling server
   pc.onicecandidate = event => {
     if (event.candidate) {
-      sendMessage({'candidate': event.candidate});
+      sendMessage({ 'candidate': event.candidate });
     }
   };
 
@@ -73,7 +212,7 @@ function startWebRTC(isOfferer) {
   if (isOfferer) {
     pc.onnegotiationneeded = () => {
       pc.createOffer().then(localDescCreated).catch(onError);
-    }
+    };
   }
 
   // When a remote stream arrives display it in the #remoteVideo element
@@ -84,15 +223,7 @@ function startWebRTC(isOfferer) {
     }
   };
 
-  navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: true,
-  }).then(stream => {
-    // Display your local video in #localVideo element
-    localVideo.srcObject = stream;
-    // Add your stream to be sent to the conneting peer
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
-  }, onError);
+
 
   // Listen to signaling data from Scaledrone
   room.on('data', (message, client) => {
@@ -121,7 +252,47 @@ function startWebRTC(isOfferer) {
 function localDescCreated(desc) {
   pc.setLocalDescription(
     desc,
-    () => sendMessage({'sdp': pc.localDescription}),
+    () => sendMessage({ 'sdp': pc.localDescription }),
     onError
   );
+}
+
+async function getMaxSupportedVideoConstraintsWithPermissions() {
+  try {
+    const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+    const micPermission = await navigator.permissions.query({ name: 'microphone' });
+
+    const cameraGranted = cameraPermission.state === 'granted';
+    const micGranted = micPermission.state === 'granted';
+
+    if (!cameraGranted || !micGranted) {
+      console.log('Requesting permissions...');
+    } else {
+      console.log('Permissions already granted.');
+    }
+
+    // Always call getUserMedia to access tracks and get capabilities
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+
+    const videoTrack = stream.getVideoTracks()[0];
+    const capabilities = videoTrack.getCapabilities();
+
+    const maxWidth = capabilities.width?.max || null;
+    const maxHeight = capabilities.height?.max || null;
+    const maxFrameRate = capabilities.frameRate?.max || null;
+
+    console.log('Supported Capabilities:', capabilities);
+    console.log(`Max resolution: ${maxWidth}x${maxHeight}, Max FPS: ${maxFrameRate}`);
+
+    // Cleanup
+    stream.getTracks().forEach(track => track.stop());
+
+    return { maxWidth, maxHeight, maxFrameRate };
+  } catch (err) {
+    console.error('Media access error or permission denied:', err);
+    return null;
+  }
 }
