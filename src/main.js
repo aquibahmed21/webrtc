@@ -37,7 +37,10 @@ let localheight = 0;
 let localwidth = 0;
 let localframeRate = 0;
 
-await getMaxSupportedVideoConstraintsWithPermissions();
+document.addEventListener("DOMContentLoaded", async event => {
+  await getMaxSupportedVideoConstraintsWithPermissions();
+})
+
 
 const quality = document.querySelector('#quality');
 const framerate = document.querySelector('#framerate');
