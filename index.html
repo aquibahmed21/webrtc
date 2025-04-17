@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Calling App</title>
+    <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
+  <script type="module" crossorigin src="/webrtc/assets/index-hsuJRNmz.js"></script>
+  <link rel="stylesheet" crossorigin href="/webrtc/assets/index-l_P4d2gE.css">
+</head>
+<body>
+    <h1>WebRTC Calling App</h1>
+
+    <div>
+        <label for="roomName">Room Name:</label>
+        <input type="text" id="roomName" value="helloWorld">
+    </div>
+
+    <button id="startButton">Start Room</button>
+    <button id="joinButton">Join Room</button>
+
+    <div>
+        <h2>Your Video</h2>
+        <video id="localVideo" autoplay playsinline muted></video>
+    </div>
+
+    <div>
+        <h2>Remote Video</h2>
+        <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+
+</body>
+</html>
