@@ -38,9 +38,13 @@ let localstream = null;
 let localheight = 0;
 let localwidth = 0;
 let localframeRate = 0;
+// let settings = {};
 
 document.addEventListener("DOMContentLoaded", async event => {
   await getMaxSupportedVideoConstraintsWithPermissions();
+  // settings = JSON.parse(localStorage.getItem("configuration"));
+  // const constraints = await navigator.mediaDevices.getSupportedConstraints();
+  // console.log({ constraints });
 });
 
 
@@ -60,7 +64,8 @@ controls.addEventListener('click', async event => {
         localstream.getTracks().forEach(track => pc.addTrack(track, localstream));
         event.target.nextElementSibling.disabled = false;
         event.target.nextElementSibling.nextElementSibling.disabled = false;
-        event.target.nextElementSibling.disabled = false;
+        // if (settings.video.facingMode)
+        //   event.target.nextElementSibling.nextElementSibling.nextElementSibling.disabled = false;
         event.target.nextElementSibling.nextElementSibling.nextElementSibling.nextElementSibling.disabled = false;
       }
       break;
@@ -73,7 +78,25 @@ controls.addEventListener('click', async event => {
       localstream.getVideoTracks()[0].enabled = !localstream.getVideoTracks()[0].enabled;
       break;
     case 'switchCamera':
-      localstream.getVideoTracks()[0].getSettings().facingMode = localstream.getVideoTracks()[0].getSettings().facingMode === 'user' ? 'environment' : 'user';
+      const currentFacing = localstream.getVideoTracks()[0].getSettings().facingMode || 'user';
+      const newFacing = currentFacing === 'user' ? 'environment' : 'user';
+
+      const constraints = {
+        video: {
+          width: localwidth,
+          height: localheight,
+          frameRate: localframeRate,
+          facingMode: { ideal: newFacing }
+        },
+        audio: true
+      };
+
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      localstream.getVideoTracks()[0].stop();
+      localstream.removeTrack(localstream.getVideoTracks()[0]);
+      localstream.addTrack(newStream.getVideoTracks()[0]);
+      localstream = newStream;
+      localVideo.srcObject = localstream;
       break;
     case 'hangup':
       localVideo.srcObject = null;
@@ -224,89 +247,96 @@ function startWebRTC(isOfferer) {
     const stream = event.streams[0];
     if (!remoteVideo.srcObject || remoteVideo.srcObject.id !== stream.id) {
       remoteVideo.srcObject = stream;
-    }
+      // for (const stream of event.streams)
+      // {
+      //   const existingVideo = document.querySelector(`video[data-stream-id="${stream.id}"]`);
+      //   if (!existingVideo) {
+      //     const newVideo = document.createElement('video');
+      //     newVideo.srcObject = stream;
+      //     newVideo.autoplay = true;
+      //     newVideo.playsinline = true;
+      //     newVideo.dataset.streamId = stream.id;
+      //     document.querySelector('.dynamicVideoContainer').appendChild(newVideo);
+      //   }
+      // }
+    };
+
+
+
+    // Listen to signaling data from Scaledrone
+    room.on('data', (message, client) => {
+      // Message was sent by us
+      if (client.id === drone.clientId) {
+        return;
+      }
+
+      if (message.sdp) {
+        // This is called after receiving an offer or answer from another peer
+        pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
+          // When receiving an offer lets answer it
+          if (pc.remoteDescription.type === 'offer') {
+            pc.createAnswer().then(localDescCreated).catch(onError);
+          }
+        }, onError);
+      } else if (message.candidate) {
+        // Add the new ICE candidate to our connections remote description
+        pc.addIceCandidate(
+          new RTCIceCandidate(message.candidate), onSuccess, onError
+        );
+      }
+    });
   };
 
+  function localDescCreated(desc) {
+    pc.setLocalDescription(
+      desc,
+      () => sendMessage({ 'sdp': pc.localDescription }),
+      onError
+    );
+  }
+
+  async function getMaxSupportedVideoConstraintsWithPermissions() {
+    try {
+      const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+      const micPermission = await navigator.permissions.query({ name: 'microphone' });
+
+      const cameraGranted = cameraPermission.state === 'granted';
+      const micGranted = micPermission.state === 'granted';
+
+      if (!cameraGranted || !micGranted) {
+        console.log('Requesting permissions...');
+        // Always call getUserMedia to access tracks and get capabilities
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+
+        const videoTrack = stream.getVideoTracks()[0];
+        const videoCapabilities = videoTrack.getCapabilities();
+
+        const configuration = {
+          video: {
+            maxWidth: videoCapabilities.width?.max || 0,
+            maxHeight: videoCapabilities.height?.max || 0,
+            maxFrameRate: videoCapabilities.frameRate?.max || 0,
+            facingMode: videoCapabilities.facingMode.toString(),
+          },
+          audio: true
+        };
+        localStorage.setItem("configuration", JSON.stringify(configuration));
 
 
-  // Listen to signaling data from Scaledrone
-  room.on('data', (message, client) => {
-    // Message was sent by us
-    if (client.id === drone.clientId) {
+        // Cleanup
+        stream.getTracks().forEach(track => track.stop());
+      }
+      else {
+        console.log('Permissions already granted.');
+      }
+
       return;
+    } catch (err) {
+      console.error('Media access error or permission denied:', err);
+      return null;
     }
-
-    if (message.sdp) {
-      // This is called after receiving an offer or answer from another peer
-      pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
-        // When receiving an offer lets answer it
-        if (pc.remoteDescription.type === 'offer') {
-          pc.createAnswer().then(localDescCreated).catch(onError);
-        }
-      }, onError);
-    } else if (message.candidate) {
-      // Add the new ICE candidate to our connections remote description
-      pc.addIceCandidate(
-        new RTCIceCandidate(message.candidate), onSuccess, onError
-      );
-    }
-  });
-}
-
-function localDescCreated(desc) {
-  pc.setLocalDescription(
-    desc,
-    () => sendMessage({ 'sdp': pc.localDescription }),
-    onError
-  );
-}
-
-async function getMaxSupportedVideoConstraintsWithPermissions() {
-  try {
-    const cameraPermission = await navigator.permissions.query({ name: 'camera' });
-    const micPermission = await navigator.permissions.query({ name: 'microphone' });
-
-    const cameraGranted = cameraPermission.state === 'granted';
-    const micGranted = micPermission.state === 'granted';
-
-    if (!cameraGranted || !micGranted) {
-      console.log('Requesting permissions...');
-      // Always call getUserMedia to access tracks and get capabilities
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-
-      const videoTrack = stream.getVideoTracks()[0];
-      const videoCapabilities = videoTrack.getCapabilities();
-      const audioCapabilities = stream.getAudioTracks()[0].getCapabilities();
-
-      console.log('Audio Capabilities:', audioCapabilities);
-
-      const minWidth = videoCapabilities.width?.min || 0;
-      const maxWidth = videoCapabilities.width?.max || 0;
-      const minHeight = videoCapabilities.height?.min || 0;
-      const maxHeight = videoCapabilities.height?.max || 0;
-      const minFrameRate = videoCapabilities.frameRate?.min || 0;
-      const maxFrameRate = videoCapabilities.frameRate?.max || 0;
-
-      console.log('Supported Capabilities:', videoCapabilities);
-      console.log('Max Width:', maxWidth);
-      console.log('Max Height:', maxHeight);
-      console.log('Max Frame Rate:', maxFrameRate);
-      console.log('Min Width:', minWidth);
-      console.log('Min Height:', minHeight);
-      console.log('Min Frame Rate:', minFrameRate);
-
-      // Cleanup
-      stream.getTracks().forEach(track => track.stop());
-
-      return { maxWidth, maxHeight, maxFrameRate };
-    } else {
-      console.log('Permissions already granted.');
-    }
-  } catch (err) {
-    console.error('Media access error or permission denied:', err);
-    return null;
   }
 }

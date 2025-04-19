@@ -34,6 +34,7 @@
     justify-content: center;
     margin-bottom: 1rem;
     align-content: center;
+    position: relative;
   }
 
   video {
@@ -43,6 +44,13 @@
     border-radius: 0.75rem;
     background: #000;
     transition: transform 0.3s ease-in-out;
+  }
+
+  video#localVideo {
+    /* max-width: 150px;
+    position: absolute;
+    left: 0;
+    bottom: 0; */
   }
 
   video:hover {
@@ -100,6 +108,7 @@
       opacity: 0;
       transform: translateY(10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
