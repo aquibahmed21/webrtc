@@ -30,6 +30,8 @@ document.querySelector('#app').innerHTML = `
       <option value="30">30</option>
       <option value="60">60</option>
     </select>
+
+    <button id="refresh" onclick="location.reload()" title="Refresh page">&#x1f504;</button>
 `;
 
 let localstream = null;
@@ -39,7 +41,7 @@ let localframeRate = 0;
 
 document.addEventListener("DOMContentLoaded", async event => {
   await getMaxSupportedVideoConstraintsWithPermissions();
-})
+});
 
 
 const quality = document.querySelector('#quality');
@@ -75,7 +77,6 @@ controls.addEventListener('click', async event => {
       break;
     case 'hangup':
       localVideo.srcObject = null;
-      pc.close();
       localstream.getTracks().forEach(track => track.stop());
       localstream = null;
       event.target.disabled = true;
@@ -270,30 +271,40 @@ async function getMaxSupportedVideoConstraintsWithPermissions() {
 
     if (!cameraGranted || !micGranted) {
       console.log('Requesting permissions...');
+      // Always call getUserMedia to access tracks and get capabilities
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+
+      const videoTrack = stream.getVideoTracks()[0];
+      const videoCapabilities = videoTrack.getCapabilities();
+      const audioCapabilities = stream.getAudioTracks()[0].getCapabilities();
+
+      console.log('Audio Capabilities:', audioCapabilities);
+
+      const minWidth = videoCapabilities.width?.min || 0;
+      const maxWidth = videoCapabilities.width?.max || 0;
+      const minHeight = videoCapabilities.height?.min || 0;
+      const maxHeight = videoCapabilities.height?.max || 0;
+      const minFrameRate = videoCapabilities.frameRate?.min || 0;
+      const maxFrameRate = videoCapabilities.frameRate?.max || 0;
+
+      console.log('Supported Capabilities:', videoCapabilities);
+      console.log('Max Width:', maxWidth);
+      console.log('Max Height:', maxHeight);
+      console.log('Max Frame Rate:', maxFrameRate);
+      console.log('Min Width:', minWidth);
+      console.log('Min Height:', minHeight);
+      console.log('Min Frame Rate:', minFrameRate);
+
+      // Cleanup
+      stream.getTracks().forEach(track => track.stop());
+
+      return { maxWidth, maxHeight, maxFrameRate };
     } else {
       console.log('Permissions already granted.');
     }
-
-    // Always call getUserMedia to access tracks and get capabilities
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true
-    });
-
-    const videoTrack = stream.getVideoTracks()[0];
-    const capabilities = videoTrack.getCapabilities();
-
-    const maxWidth = capabilities.width?.max || null;
-    const maxHeight = capabilities.height?.max || null;
-    const maxFrameRate = capabilities.frameRate?.max || null;
-
-    console.log('Supported Capabilities:', capabilities);
-    console.log(`Max resolution: ${maxWidth}x${maxHeight}, Max FPS: ${maxFrameRate}`);
-
-    // Cleanup
-    stream.getTracks().forEach(track => track.stop());
-
-    return { maxWidth, maxHeight, maxFrameRate };
   } catch (err) {
     console.error('Media access error or permission denied:', err);
     return null;
