@@ -1,65 +1,16 @@
 // app.js
-import { getLocalStream, createVideoElement } from './media.js';
-import { setupRoom } from './room.js';
-
-import './style.css';
-
-document.querySelector('#app').innerHTML = `
-    <div class="Channel"></div>
-    <div class="controls" id="controls">
-      <button id="start">Start</button>
-      <button id="muteAudio" disabled>Mute Audio</button>
-      <button id="muteVideo" disabled>Mute Video</button>
-      <button id="switchCamera" disabled>Switch Camera</button>
-      <button id="hangup" disabled>Hang Up</button>
-    </div>
-
-    <label for="quality">Select quality:</label>
-    <select id="quality">
-      <option value="160x120">160x120</option>
-      <option value="320x240">320x240</option>
-      <option value="640x480">640x480</option>
-      <option value="1280x720">1280x720</option>
-      <option value="1920x1080">1920x1080</option>
-    </select>
-
-    <label for="framerate">Select framerate:</label>
-    <select id="framerate">
-      <option value="10">10</option>
-      <option value="20">20</option>
-      <option value="30">30</option>
-      <option value="60">60</option>
-    </select>
-
-    <button id="refresh" onclick="location.reload()" title="Refresh page">&#x1f504;</button>
-`;
+import { getLocalStream, createVideoElement, getCameraList } from './media.js';
+import { setupRoom, pcInfo } from './room.js';
 
 let localStream = null;
-async function main() {
-  localStream = await getLocalStream();
-  createVideoElement(localStream, 'localVideo', true);
-
-  setupRoom(localStream, (remoteStream, id) => {
-    if (!document.getElementById(id)) {
-      createVideoElement(remoteStream, id);
-    }
-  });
-}
 
 document.querySelector("#controls").addEventListener('click', async event => {
   const target = event.target;
   const targetID = event.target.id;
   switch (targetID) {
     case 'start':
-    {
       await main();
-      target.disabled = true;
-      target.nextElementSibling.disabled = false;
-      target.nextElementSibling.nextElementSibling.disabled = false;
-      // if (settings.video.facingMode)
-      //   target.nextElementSibling.nextElementSibling.nextElementSibling.disabled = false;
-      target.nextElementSibling.nextElementSibling.nextElementSibling.nextElementSibling.disabled = false;
-    }
+    break;
     case 'muteAudio':
       target.textContent = localStream.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio';
       localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled;
@@ -92,11 +43,31 @@ document.querySelector("#controls").addEventListener('click', async event => {
     case 'hangup':
       localStream.getTracks().forEach(track => track.stop());
       localStream = null;
-      target.disabled = true;
-      target.previousElementSibling.disabled = true;
-      target.previousElementSibling.previousElementSibling.disabled = true;
-      target.previousElementSibling.previousElementSibling.previousElementSibling.disabled = true;
-      target.previousElementSibling.previousElementSibling.previousElementSibling.previousElementSibling.disabled = false;
+      document.querySelector( ".Channel" ).innerHTML = "";
+      pcInfo.getSenders().forEach(sender => {
+        if (sender.track) {
+          sender.track.stop();
+        }
+      } );
+      pcInfo.close();
       break;
   }
-});
+} );
+
+async function main ()
+{
+  localStream = await getLocalStream();
+  createVideoElement(localStream, 'localVideo', true);
+
+  setupRoom(localStream, (remoteStream, id) => {
+    if (!document.getElementById(id)) {
+      createVideoElement(remoteStream, id);
+    }
+  });
+}
+
+getCameraList().then( e =>
+{
+  if ( e.length <= 1 )
+    document.querySelector( '#switchCamera' ).style.display = 'none';
+})

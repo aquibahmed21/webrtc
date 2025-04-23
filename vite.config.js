@@ -14,5 +14,8 @@ export default defineConfig({
   //   minify: 'terser', // Use terser for minification (default is esbuild)
   //   sourcemap: true, // Generate sourcemaps for debugging
   // },
+  server: {
+    open: true
+  },
   base: "/webrtc"
 });

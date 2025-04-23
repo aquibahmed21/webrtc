@@ -3,8 +3,10 @@ import { createScaledrone } from './signalling.js';
 
 const peerConnections = {};
 let localStream;
+export let pcInfo = null;
 
-export function setupRoom(localStreamRef, onRemoteTrack) {
+export function setupRoom ( localStreamRef, onRemoteTrack )
+{
   localStream = localStreamRef;
 
   const ROOM_NAME = 'observable-e7b2d4';
@@ -56,7 +58,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
   });
 
   function createPeerConnection(id, isInitiator, onRemoteTrack) {
-    const pc = new RTCPeerConnection();
+    const pc = pcInfo = new RTCPeerConnection();
 
     pc.onicecandidate = event => {
       if (event.candidate) {
