@@ -6,10 +6,41 @@
     <title>KiteCite Call</title>
     <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
     <link rel="icon" type="image/svg+xml" href="/webrtc/images/webcam.svg">
-    <script type="module" crossorigin src="/webrtc/assets/index-DpFb-sVp.js"></script>
-    <link rel="stylesheet" crossorigin href="/webrtc/assets/index-CMAQhm_Q.css">
+    <script type="module" crossorigin src="/webrtc/assets/index-dsfmYsUE.js"></script>
+    <link rel="stylesheet" crossorigin href="/webrtc/assets/index-DH7gd5kL.css">
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="Channel"></div>
+    <div class="controls" id="controls">
+      <button id="start">Start</button>
+      <button id="muteAudio">Mute Audio</button>
+      <button id="muteVideo">Mute Video</button>
+      <button id="switchCamera">Switch Camera</button>
+      <button id="hangup">Hang Up</button>
+      <div class="sub-control">
+        <label for="quality">Select quality:</label>
+        <select id="quality">
+          <option value="160x120">160x120</option>
+          <option value="320x240">320x240</option>
+          <option value="640x480">640x480</option>
+          <option value="1280x720">1280x720</option>
+          <option value="1920x1080">1920x1080</option>
+        </select>
+
+        <label for="framerate">Select framerate:</label>
+        <select id="framerate">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+          <option value="60">60</option>
+        </select>
+      </div>
+    </div>
+
+
+
+    <button id="refresh" onclick="location.reload()" title="Refresh page">&#x1f504;</button>
+    </div>
   </body>
 </html>
