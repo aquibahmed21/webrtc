@@ -103,6 +103,7 @@ export function createVideoElement(stream, id, isLocal = false) {
 
 async function updateLocalVideoStream() {
   const pc = pcInfo;
+  if (!pc) return;
   const videoSender = pc.getSenders().find(sender => sender.track && sender.track.kind === 'video');
 
   if (videoSender) {
@@ -120,8 +121,7 @@ async function updateLocalVideoStream() {
       await videoSender.replaceTrack(newVideoTrack);
 
       // 4. Renegotiate the connection (create and send a new offer)
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      await createOfferWithPreferredCodec(pc);
 
       // Assuming you have a signaling mechanism to send the offer to the remote peer
       // sendSignalingMessage({ type: 'offer', sdp: pc.localDescription });
@@ -137,3 +137,58 @@ async function updateLocalVideoStream() {
     console.log("No video sender found.");
   }
 }
+
+function getPreferredVideoCodec() {
+  const ua = navigator.userAgent;
+
+  if (/iPhone|iPad|iPod/.test(ua) && /Safari/.test(ua) && !/CriOS/.test(ua)) {
+    return "H264"; // iOS Safari prefers H264
+  }
+
+  if (/Android/.test(ua) && /Chrome/.test(ua)) {
+    return "VP8"; // Android Chrome works well with VP8
+  }
+
+  if (/Firefox/.test(ua)) {
+    return "VP8"; // Firefox prefers VP8
+  }
+
+  if (/Edge|Edg/.test(ua)) {
+    return "VP8"; // Edge Chromium supports both, but VP8 is safe
+  }
+
+  return "VP8"; // Default fallback
+}
+
+function preferCodec(sdp, codec, kind = "video") {
+  const lines = sdp.split("\r\n");
+  const mLineIndex = lines.findIndex(line => line.startsWith(`m=${kind}`));
+  if (mLineIndex === -1) return sdp;
+
+  const codecRegex = new RegExp(`a=rtpmap:(\\d+)\\s${codec}`, "i");
+  const codecPayloads = lines
+    .filter(line => codecRegex.test(line))
+    .map(line => line.match(codecRegex)[1]);
+
+  if (codecPayloads.length === 0) return sdp;
+
+  const mLineParts = lines[mLineIndex].split(" ");
+  const newPayloads = codecPayloads.concat(
+    mLineParts.slice(3).filter(pt => !codecPayloads.includes(pt))
+  );
+  lines[mLineIndex] = [...mLineParts.slice(0, 3), ...newPayloads].join(" ");
+
+  return lines.join("\r\n");
+}
+
+export async function createOfferWithPreferredCodec(pc) {
+  const offer = await pc.createOffer();
+  const preferredCodec = getPreferredVideoCodec();
+  const modifiedSdp = preferCodec(offer.sdp, preferredCodec);
+  await pc.setLocalDescription({ type: offer.type, sdp: modifiedSdp });
+
+  console.log("Preferred codec:", preferredCodec);
+  console.log("Modified SDP:", modifiedSdp);
+  return offer;
+}
+

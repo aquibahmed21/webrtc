@@ -1,5 +1,6 @@
 // room.js
 import { createScaledrone } from './signalling.js';
+import { createOfferWithPreferredCodec } from './media.js';
 
 const peerConnections = {};
 let localStream;
@@ -102,7 +103,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     });
   });
 
-  function createPeerConnection(id, isInitiator, onRemoteTrack) {
+  async function createPeerConnection(id, isInitiator, onRemoteTrack) {
     const pc = pcInfo = new RTCPeerConnection(configuration);
 
     // Log when ICE candidates are gathered
@@ -159,11 +160,8 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
     if (isInitiator) {
-      pc.createOffer()
-        .then(offer => {
-          pc.setLocalDescription(offer);
-          drone.publish({ room: ROOM_NAME, message: { type: 'offer', offer, to: id } });
-        });
+      const offer = await createOfferWithPreferredCodec(pc);
+      drone.publish({ room: ROOM_NAME, message: { type: 'offer', offer, to: id } });
     }
 
     peerConnections[id] = pc;
