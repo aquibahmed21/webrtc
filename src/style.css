@@ -1,132 +1,141 @@
-  * {
-    box-sizing: border-box;
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 1rem;
+  animation: fadeIn 1s ease;
+}
+
+#app {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 900px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  transition: all 0.4s ease-in-out;
+}
+
+.Channel:empty,
+.Channel:empty+.controls button:not(:first-child),
+.Channel:not(:has(#localVideo))+.controls button:not(:first-child),
+.Channel:has(#localVideo)+.controls button:first-child,
+.Channel:empty+.controls .sub-control,
+.Channel:not(:has(#localVideo))+.controls .sub-control {
+  display: none;
+}
+
+
+.Channel {
+  /* display: flex; */
+  /* flex-direction: row; */
+  /* gap: 1rem; */
+  /* flex-wrap: wrap; */
+  /* justify-content: center; */
+  /* margin-bottom: 1rem; */
+  /* align-content: center; */
+  /* position: relative; */
+}
+
+video {
+  /* width: 100%; */
+  /* max-width: 420px; */
+  /* height: auto; */
+  /* border-radius: 0.75rem; */
+  /* background: #000; */
+  /* transition: transform 0.3s ease-in-out; */
+}
+
+video:hover {
+  transform: scale(1.02);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+#refresh {
+  position: fixed;
+  bottom: 2%;
+  right: 2%;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+
+button {
+  background: #1e90ff;
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+button:disabled {
+  background: #444;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  background: #3ea0ff;
+  transform: scale(1.05);
+}
+
+select {
+  padding: 0.4rem 0.8rem;
+  font-size: 1rem;
+  border-radius: 0.4rem;
+  border: none;
+  background: #1a1a1a;
+  color: #fff;
+  margin-right: 1rem;
+  transition: all 0.3s ease;
+}
+
+label,
+select {
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
 
-  body {
-    margin: 0;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    color: #fff;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 1rem;
-    animation: fadeIn 1s ease;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
+}
 
-  #app {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    width: 100%;
-    max-width: 900px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(10px);
-    transition: all 0.4s ease-in-out;
-  }
-
-  .Channel:empty,
-  .Channel:empty + .controls button:not(:first-child),
-  .Channel:not(:has(#localVideo)) + .controls button:not(:first-child),
-  .Channel:has(#localVideo) + .controls button:first-child,
-  .Channel:empty + .controls .sub-control,
-  .Channel:not(:has(#localVideo)) + .controls .sub-control
-  {
-    display: none;
-  }
-
-
-  .Channel {
-    display: flex;
-    flex-direction: row;
-    gap: 1rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-bottom: 1rem;
-    align-content: center;
-    position: relative;
-  }
-
-  video {
-    width: 100%;
-    max-width: 420px;
-    height: auto;
-    border-radius: 0.75rem;
-    background: #000;
-    transition: transform 0.3s ease-in-out;
-  }
-
-  video:hover {
-    transform: scale(1.02);
-  }
-
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: center;
-    margin-bottom: 1rem;
-  }
-
-
+@media (max-width: 480px) {
   button {
-    background: #1e90ff;
-    color: white;
-    padding: 0.6rem 1.2rem;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background 0.3s ease, transform 0.2s ease;
-  }
-
-  button:disabled {
-    background: #444;
-    cursor: not-allowed;
-  }
-
-  button:hover:not(:disabled) {
-    background: #3ea0ff;
-    transform: scale(1.05);
+    flex: 1 1 100%;
   }
 
   select {
-    padding: 0.4rem 0.8rem;
-    font-size: 1rem;
-    border-radius: 0.4rem;
-    border: none;
-    background: #1a1a1a;
-    color: #fff;
-    margin-right: 1rem;
-    transition: all 0.3s ease;
+    width: 100%;
+    margin-bottom: 0.5rem;
   }
-
-  label,
-  select {
-    display: inline-block;
-    margin-top: 0.5rem;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @media (max-width: 480px) {
-    button {
-      flex: 1 1 100%;
-    }
-
-    select {
-      width: 100%;
-      margin-bottom: 0.5rem;
-    }
-  }
+}

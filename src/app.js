@@ -1,5 +1,5 @@
 // app.js
-import { getLocalStream, createVideoElement, toggleCamera } from './media.js';
+import { getLocalStream, createVideoElement, switchCamera } from './media.js';
 import { setupRoom, pcInfo, drone } from './room.js';
 
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -10,7 +10,9 @@ document.querySelector("#controls").addEventListener('click', async event => {
   const targetID = event.target.id;
   switch (targetID) {
     case 'start':
+      target.disabled = true;
       await main();
+      target.disabled = false;
       break;
     case 'muteAudio':
       target.textContent = localStream.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio';
@@ -21,8 +23,7 @@ document.querySelector("#controls").addEventListener('click', async event => {
       localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled;
       break;
     case 'switchCamera':
-      await toggleCamera();
-
+      await switchCamera();
       break;
     case 'hangup':
       // Mute the local video and audio tracks before stopping
@@ -49,7 +50,7 @@ document.querySelector("#controls").addEventListener('click', async event => {
             pcInfo.getSenders().forEach(sender => {
               if (sender.track) sender.track.stop();
             });
-            pcInfo.close();
+            // pcInfo.close();
           }
         }, 300); // ~300ms delay
       }
@@ -61,6 +62,15 @@ async function main() {
   localStream = await getLocalStream();
   createVideoElement(localStream, 'localVideo', true);
 
+  if (drone) {
+    // Notify other peers you're joining
+    drone.publish({
+      room: Object.keys(drone.rooms)[0],
+      message: { type: 'join', from: drone.clientId }
+    });
+    return;
+  }
+
   setupRoom(localStream, (remoteStream, id) => {
     if (!document.getElementById(id)) {
       createVideoElement(remoteStream, id);
@@ -68,5 +78,5 @@ async function main() {
   });
 }
 
-  if (!isMobile)
-    document.querySelector('#switchCamera').style.display = 'none';
+if (!isMobile)
+  document.querySelector('#switchCamera').style.display = 'none';

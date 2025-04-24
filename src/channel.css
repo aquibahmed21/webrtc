@@ -1,35 +1,50 @@
 .Channel {
   display: flex;
-  flex-wrap: wrap; /* Allow videos to wrap to the next line on smaller screens */
-  gap: 10px; /* Spacing between video elements */
+  flex-wrap: wrap;
+  /* Allow videos to wrap to the next line on smaller screens */
+  gap: 10px;
+  /* Spacing between video elements */
   padding: 10px;
-  background-color: #222; /* Dark background for contrast */
+  background-color: #222;
+  /* Dark background for contrast */
   border-radius: 8px;
-  overflow: hidden; /* Clip any overflowing content */
-  transition: all 0.3s ease-in-out; /* Smooth transition for container changes */
+  overflow: hidden;
+  /* Clip any overflowing content */
+  transition: all 0.3s ease-in-out;
+  /* Smooth transition for container changes */
+  justify-content: center;
 }
 
 #localVideo {
-  width: 100%; /* Initially take full width on mobile */
-  aspect-ratio: 16 / 9; /* Maintain aspect ratio */
+  width: 50%;
+  /* Initially take full width on mobile */
+  /* aspect-ratio: 16 / 9; */
+  /* Maintain aspect ratio */
   background-color: #333;
   border-radius: 6px;
-  object-fit: cover; /* Ensure video fills the container without distortion */
+  /* object-fit: fill; */
+  /* Ensure video fills the container without distortion */
   transition: width 0.3s ease-in-out, height 0.3s ease-in-out;
+}
+
+#localVideo[mode="user"] {
+  transform: scale(-1, 1);
 }
 
 /* Style for all video elements within the Channel (including participants) */
 .Channel video {
   background-color: #333;
   border-radius: 6px;
-  object-fit: cover;
+  /* object-fit: cover; */
   transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+  width: 100%;
 }
 
 /* Style specifically for participant videos */
 .Channel video:not(#localVideo) {
-  width: calc(50% - 5px); /* Two side-by-side on smaller screens */
-  aspect-ratio: 16 / 9;
+  /* width: calc(50% - 5px); */
+  /* Two side-by-side on smaller screens */
+  /* aspect-ratio: 16 / 9; */
 }
 
 /* Animation for when a participant joins */
@@ -57,11 +72,13 @@
 /* Responsive adjustments */
 @media (min-width: 600px) {
   #localVideo {
-    width: 40%; /* Take up less width on larger screens */
+    width: 40%;
+    /* Take up less width on larger screens */
   }
 
   .Channel video:not(#localVideo) {
-    width: calc(33.33% - 6.66px); /* Three side-by-side on tablets */
+    width: calc(33.33% - 6.66px);
+    /* Three side-by-side on tablets */
   }
 }
 
@@ -71,7 +88,8 @@
   }
 
   .Channel video:not(#localVideo) {
-    width: calc(25% - 7.5px); /* Four side-by-side on desktops */
+    width: calc(25% - 7.5px);
+    /* Four side-by-side on desktops */
   }
 }
 

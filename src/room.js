@@ -57,6 +57,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     if (senderId === drone.clientId) return;
 
+
     switch (data.type) {
       case 'offer':
         createPeerConnection(senderId, false, onRemoteTrack);
@@ -92,6 +93,12 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
           delete peerConnections[senderId];
         }
         break;
+
+      case 'join':
+        createPeerConnection(senderId, true, onRemoteTrack);
+        break;
+
+      default: console.warn('Unknown data type:', data.type);
     }
   }
 
