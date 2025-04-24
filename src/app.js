@@ -1,7 +1,8 @@
 // app.js
-import { getLocalStream, createVideoElement, getCameraList } from './media.js';
+import { getLocalStream, createVideoElement, toggleCamera } from './media.js';
 import { setupRoom, pcInfo, drone } from './room.js';
 
+export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
 
 document.querySelector("#controls").addEventListener('click', async event => {
@@ -20,25 +21,8 @@ document.querySelector("#controls").addEventListener('click', async event => {
       localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled;
       break;
     case 'switchCamera':
-      const currentFacing = localStream.getVideoTracks()[0].getSettings().facingMode || 'user';
-      const newFacing = currentFacing === 'user' ? 'environment' : 'user';
+      await toggleCamera();
 
-      const constraints = {
-        video: {
-          width: localwidth,
-          height: localheight,
-          frameRate: localframeRate,
-          facingMode: { ideal: newFacing }
-        },
-        audio: true
-      };
-
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-      localStream.getVideoTracks()[0].stop();
-      localStream.removeTrack(localStream.getVideoTracks()[0]);
-      localStream.addTrack(newStream.getVideoTracks()[0]);
-      localStream = newStream;
-      createVideoElement(localStream, 'localVideo', true);
       break;
     case 'hangup':
       // Mute the local video and audio tracks before stopping
@@ -84,7 +68,5 @@ async function main() {
   });
 }
 
-getCameraList().then(e => {
-  if (e.length <= 1)
+  if (!isMobile)
     document.querySelector('#switchCamera').style.display = 'none';
-});
