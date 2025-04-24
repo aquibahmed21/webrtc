@@ -4,13 +4,46 @@ import { createScaledrone } from './signalling.js';
 const peerConnections = {};
 let localStream;
 export let pcInfo = null;
+export let drone = null;
+export let room = null;
 
-export function setupRoom ( localStreamRef, onRemoteTrack )
-{
+// const iceServers = [
+//   { urls: "stun:stun.l.google.com:19302" },
+//   { urls: "stun:stun.l.google.com:5349" },
+//   { urls: "stun:stun1.l.google.com:3478" },
+//   { urls: "stun:stun1.l.google.com:5349" },
+//   { urls: "stun:stun2.l.google.com:19302" },
+//   { urls: "stun:stun2.l.google.com:5349" },
+//   { urls: "stun:stun3.l.google.com:3478" },
+//   { urls: "stun:stun3.l.google.com:5349" },
+//   { urls: "stun:stun4.l.google.com:19302" },
+//   { urls: "stun:stun4.l.google.com:5349" },
+//   { urls: "stun:stun.services.mozilla.com" },
+//   { urls: "stun:stun.l.google.com:19302" },
+//   {
+//     urls: "turn:relay1.expressturn.com:3478",
+//     username: "ef9E9FOCD5ZHMASK6A",
+//     credential: "LYlVVI3XWKUSTxpy"
+//   }
+// ];
+
+const iceServers = [
+  { urls: ["stun:stun.l.google.com:19302"] },
+  {
+    urls:
+      ["turn:122.166.150.147:5060?transport=tcp"],
+    "username": "test", "credential": "pa55w0rd!"
+  }
+];
+const configuration = { iceServers };
+
+export function setupRoom(localStreamRef, onRemoteTrack) {
   localStream = localStreamRef;
-
   const ROOM_NAME = 'observable-e7b2d4';
-  const { drone, room } = createScaledrone(ROOM_NAME, handleOpen, handleMessage);
+  const { drone: createdDrone, room: createdRoom } = createScaledrone(ROOM_NAME, handleOpen, handleMessage);
+  drone = createdDrone;
+  room = createdRoom;
+
 
   function handleOpen(error) {
     if (error) return console.error(error);
@@ -46,6 +79,18 @@ export function setupRoom ( localStreamRef, onRemoteTrack )
           peerConnections[senderId].addIceCandidate(new RTCIceCandidate(data.candidate));
         }
         break;
+
+      case 'leave':
+        // Remove video from DOM
+        const videoEl = document.getElementById(senderId);
+        if (videoEl) videoEl.remove();
+
+        // Close and delete the peer connection
+        if (peerConnections[senderId]) {
+          peerConnections[senderId].close();
+          delete peerConnections[senderId];
+        }
+        break;
     }
   }
 
@@ -58,18 +103,56 @@ export function setupRoom ( localStreamRef, onRemoteTrack )
   });
 
   function createPeerConnection(id, isInitiator, onRemoteTrack) {
-    const pc = pcInfo = new RTCPeerConnection();
+    const pc = pcInfo = new RTCPeerConnection(configuration);
 
+    // Log when ICE candidates are gathered
     pc.onicecandidate = event => {
       if (event.candidate) {
+        console.log("New ICE Candidate:", event.candidate);
         drone.publish({
           room: ROOM_NAME,
           message: { type: 'candidate', candidate: event.candidate, to: id }
         });
       }
+      else {
+        console.log("All ICE candidates have been gathered.");
+      }
     };
 
+    // Log ICE connection state changes
+    pc.oniceconnectionstatechange = () => {
+      console.log("ICE connection state changed:", pc.iceConnectionState);
+
+      if (pc.iceConnectionState === "failed") {
+        console.warn("ICE Connection failed. Likely need TURN.");
+        document.getElementById(id)?.remove();
+      } else if (pc.iceConnectionState === "disconnected") {
+        console.warn("ICE Connection disconnected. Could be a network issue.");
+        document.getElementById(id)?.remove();
+      } else if (pc.iceConnectionState === "closed") {
+        console.warn("ICE Connection closed.");
+        document.getElementById(id)?.remove();
+      }
+    };
+
+    // Optional: catch connection state changes
+    pc.onconnectionstatechange = () => {
+      console.log("PeerConnection state:", pc.connectionState);
+    };
+
+    // Optional: handle negotiation
+    pc.onnegotiationneeded = () => {
+      console.log("Negotiation needed");
+    };
+
+    // Log signaling state changes
+    pc.onsignalingstatechange = () => {
+      console.log("Signaling state changed:", pc.signalingState);
+    };
+
+    // Log when tracks are added
     pc.ontrack = event => {
+      console.log("Track received:", event.track.kind);
       onRemoteTrack(event.streams[0], id);
     };
 

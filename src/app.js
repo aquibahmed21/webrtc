@@ -1,6 +1,6 @@
 // app.js
 import { getLocalStream, createVideoElement, getCameraList } from './media.js';
-import { setupRoom, pcInfo } from './room.js';
+import { setupRoom, pcInfo, drone } from './room.js';
 
 let localStream = null;
 
@@ -10,7 +10,7 @@ document.querySelector("#controls").addEventListener('click', async event => {
   switch (targetID) {
     case 'start':
       await main();
-    break;
+      break;
     case 'muteAudio':
       target.textContent = localStream.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio';
       localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled;
@@ -41,21 +41,39 @@ document.querySelector("#controls").addEventListener('click', async event => {
       createVideoElement(localStream, 'localVideo', true);
       break;
     case 'hangup':
-      localStream.getTracks().forEach(track => track.stop());
-      localStream = null;
-      document.querySelector( ".Channel" ).innerHTML = "";
-      pcInfo.getSenders().forEach(sender => {
-        if (sender.track) {
-          sender.track.stop();
-        }
-      } );
-      pcInfo.close();
+      // Mute the local video and audio tracks before stopping
+      if (localStream) {
+        localStream.getTracks().forEach(track => {
+          track.enabled = false; // Mute the track
+        });
+
+        // Add a short delay to ensure mute is applied before stop
+        setTimeout(() => {
+          localStream.getTracks().forEach(track => track.stop());
+          localStream = null;
+
+          // Notify other peers you're leaving
+          drone.publish({
+            room: Object.keys(drone.rooms)[0],
+            message: { type: 'leave', from: drone.clientId }
+          });
+
+          document.querySelector(".Channel").innerHTML = "";
+
+          if (pcInfo) {
+            // Close peer connections and cleanup
+            pcInfo.getSenders().forEach(sender => {
+              if (sender.track) sender.track.stop();
+            });
+            pcInfo.close();
+          }
+        }, 300); // ~300ms delay
+      }
       break;
   }
-} );
+});
 
-async function main ()
-{
+async function main() {
   localStream = await getLocalStream();
   createVideoElement(localStream, 'localVideo', true);
 
@@ -66,8 +84,7 @@ async function main ()
   });
 }
 
-getCameraList().then( e =>
-{
-  if ( e.length <= 1 )
-    document.querySelector( '#switchCamera' ).style.display = 'none';
-})
+getCameraList().then(e => {
+  if (e.length <= 1)
+    document.querySelector('#switchCamera').style.display = 'none';
+});
