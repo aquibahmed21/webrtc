@@ -48,36 +48,6 @@ async function getMediaStream(width, height, frameRate, newFacing) {
   }
 }
 
-// export async function toggleCamera() {
-//   const currentFacing = localstream.getVideoTracks()[0].getSettings().facingMode || 'user';
-//   const newFacing = currentFacing === 'user' ? 'environment' : 'user';
-//   try {
-//     const constraints = newFacing === 'user' ? {
-//       video: {
-//         width: { ideal: localwidth },
-//         height: { ideal: localheight },
-//         frameRate: { ideal: localframeRate },
-//         facingMode: newFacing
-//       },
-//       audio: false // adjust as needed
-//     } : {
-//       facingMode: newFacing,
-//       video: true,
-//       audio: false, // adjust as needed
-//     };
-
-//     const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-//     localstream.getVideoTracks()[0].stop();
-//     localstream.removeTrack(localstream.getVideoTracks()[0]);
-//     localstream.addTrack(newStream.getVideoTracks()[0]);
-//     return localstream;
-//   } catch (error) {
-//     console.error("Failed to get media stream:", error);
-//     return null;
-//   }
-// }
-
 async function updateStream(width, height, frameRate, isLocal = false, isToggle = false) {
   localheight = height;
   localwidth = width;
