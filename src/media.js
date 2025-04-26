@@ -1,4 +1,5 @@
 import { pcInfo, drone } from './room.js';
+import { showToast } from './toast.js';
 
 let localwidth = 0;
 let localheight = 0;
@@ -103,6 +104,7 @@ async function getMediaStream(width, height, frameRate, newFacing) {
     return newStream;
   } catch (error) {
     console.error("Failed to get media stream:", error);
+    showToast('Error', 'Failed to get media stream!');
     return null;
   }
 }
@@ -215,6 +217,7 @@ async function updateLocalVideoStream() {
 
     } catch (error) {
       console.error("Error updating local video stream:", error);
+      showToast('Error', 'Error updating local video stream!');
       // Optionally, you might want to revert to the old track or handle the error gracefully
       if (videoSender && oldTrack && videoSender.replaceTrack) {
         await videoSender.replaceTrack(oldTrack);

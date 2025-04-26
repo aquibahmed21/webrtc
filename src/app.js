@@ -1,6 +1,7 @@
 // app.js
 import { getLocalStream, createVideoElement, switchCamera } from './media.js';
 import { setupRoom, pcInfo, drone } from './room.js';
+import { showToast } from './toast.js';
 
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
@@ -62,11 +63,11 @@ document.querySelector("#controls").addEventListener('click', async event => {
       target.disabled = false;
       break;
     case 'muteAudio':
-      target.textContent = localStream.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio';
+      target.textContent = "🔇 " + localStream.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio';
       localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled;
       break;
     case 'muteVideo':
-      target.textContent = localStream.getVideoTracks()[0].enabled ? 'Unmute Video' : 'Mute Video';
+      target.textContent = "🎥 " + localStream.getVideoTracks()[0].enabled ? 'Unmute Video' : 'Mute Video';
       localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled;
       break;
     case 'switchCamera':

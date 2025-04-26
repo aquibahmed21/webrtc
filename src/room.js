@@ -1,6 +1,7 @@
 // room.js
 import { createScaledrone } from './signalling.js';
 import { createOfferWithPreferredCodec } from './media.js';
+import { showToast } from './toast.js';
 
 const peerConnections = {};
 let localStream;
@@ -106,7 +107,9 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         }
         break;
 
-      default: console.warn('Unknown data type:', data.type);
+      default:
+      console.warn('Unknown data type:', data.type);
+      showToast('Warning', 'Unknown data type: ' + data.type);
     }
   }
 
@@ -142,12 +145,15 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
       if (pc.iceConnectionState === "failed") {
         console.warn("ICE Connection failed. Likely need TURN.");
         document.getElementById(id)?.remove();
+        showToast('Error', 'Connection failed. User is not connected!');
       } else if (pc.iceConnectionState === "disconnected") {
         console.warn("ICE Connection disconnected. Could be a network issue.");
         document.getElementById(id)?.remove();
+        showToast('Error', 'Connection disconnected. Could be a network issue!');
       } else if (pc.iceConnectionState === "closed") {
         console.warn("ICE Connection closed.");
         document.getElementById(id)?.remove();
+        showToast('Info', 'User has left the room!');
       }
     };
 
@@ -170,6 +176,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     pc.ontrack = event => {
       console.log("Track received:", event.track.kind);
       onRemoteTrack(event.streams[0], id);
+      showToast('Info', 'User has joined the room!');
     };
 
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
