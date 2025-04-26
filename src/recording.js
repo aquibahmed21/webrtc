@@ -1,3 +1,5 @@
+import { showToast } from "./toast";
+
 let mediaRecorder;
 let recordedChunks = [];
 let screenStream;
@@ -62,7 +64,7 @@ startRecordingBtn.addEventListener('click', async () => {
 
   } catch (err) {
     console.error('Error during recording setup:', err);
-    alert('Error: ' + err.message);
+    showToast('Error', 'Error during recording setup!');
   }
 });
 

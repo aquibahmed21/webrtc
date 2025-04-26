@@ -13,6 +13,7 @@ body {
   min-height: 100vh;
   padding: 1rem;
   animation: fadeIn 1s ease;
+  flex-direction: column;
 }
 
 #app {
@@ -137,6 +138,55 @@ select {
   display: none;
 }
 
+/* Toast Container */
+#toastContainer {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+
+/* Common Toast Styles */
+.toast {
+  padding: 15px;
+  margin: 10px;
+  border-radius: 5px;
+  color: white;
+  opacity: 0;
+  animation: fadeInOut 3s forwards;
+}
+
+/* Info Toast */
+.toast.info {
+  background-color: #17a2b8;
+}
+
+/* Warning Toast */
+.toast.warn {
+  background-color: #ffc107;
+}
+
+/* Error Toast */
+.toast.error {
+  background-color: #dc3545;
+}
+
+/* Toast fade-in and fade-out animation */
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
 
 @keyframes fadeIn {
   from {

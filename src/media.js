@@ -293,7 +293,7 @@ function checkScreenSharingSupport() {
     console.log("Screen sharing is supported on this platform.");
     return true;
   } else {
-    alert("Screen sharing is not supported on this platform.");
+    console.log("Screen sharing is not supported on this platform.");
     screenShare.setAttribute('disabled', 'true');
     return false;
   }
