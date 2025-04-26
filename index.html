@@ -36,7 +36,7 @@
   <meta property="og:image:width" content="1200">
 
 
-  <link rel="manifest" href="/webrtc/assets/manifest-Bz7Dt-hj.json">
+  <link rel="manifest" href="/webrtc/assets/manifest-B-OW-_g7.json">
   <meta name="theme-color" content="#0f2027">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -45,7 +45,7 @@
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
   <link rel="icon" type="image/x-icon" href="/webrtc/images/favicon.ico">
-  <script type="module" crossorigin src="/webrtc/assets/index-RKpgGVJ6.js"></script>
+  <script type="module" crossorigin src="/webrtc/assets/index-D_B0RGu9.js"></script>
   <link rel="stylesheet" crossorigin href="/webrtc/assets/index-CUgU11_K.css">
 </head>
 
@@ -102,13 +102,13 @@
   </div>
   <script>
     // Step 1: Ask for Permission
-    if ('Notification' in window && 'serviceWorker' in navigator) {
-      Notification.requestPermission().then(permission => {
-        if (permission === 'granted') {
-          console.log('Push notifications granted');
-        }
-      });
-    }
+    // if ('Notification' in window && 'serviceWorker' in navigator) {
+    //   Notification.requestPermission().then(permission => {
+    //     if (permission === 'granted') {
+    //       console.log('Push notifications granted');
+    //     }
+    //   });
+    // }
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -122,16 +122,16 @@
       });
     }
 
-    window.addEventListener("beforeunload", function (event) {
-      // Standard for most browsers
-      const message = "Do you want to exit?";
+    // window.addEventListener("beforeunload", function (event) {
+    //   // Standard for most browsers
+    //   const message = "Do you want to exit?";
 
-      // Some browsers require setting the returnValue property
-      event.returnValue = message; // Chrome, Firefox, etc.
+    //   // Some browsers require setting the returnValue property
+    //   event.returnValue = message; // Chrome, Firefox, etc.
 
-      // Older browsers might use the returnValue property to show a custom message
-      return message;  // For older browsers like Internet Explorer
-    });
+    //   // Older browsers might use the returnValue property to show a custom message
+    //   return message;  // For older browsers like Internet Explorer
+    // });
 
   </script>
 </body>
