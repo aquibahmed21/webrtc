@@ -75,7 +75,7 @@ async function updateStream(width, height, frameRate, isLocal = false, isToggle 
   }
   if (isLocal) {
     const video = document.querySelector("#localVideo");
-    video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode);
+    video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode || 'user');
     video.srcObject = localstream;
   };
   await updateLocalVideoStream();
@@ -104,7 +104,7 @@ export function createVideoElement(stream, id, isLocal = false) {
   if (isLocal) {
     video.muted = true;
     document.getElementsByClassName("Channel")[0].appendChild(video);
-    video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode);
+    video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode || 'user');
   }
   else
     document.getElementsByClassName("Channel")[0].prepend(video);

@@ -31,6 +31,10 @@
   transform: scale(-1, 1);
 }
 
+.Channel:has(:only-child) video {
+  width: 100% !important;
+}
+
 /* Style for all video elements within the Channel (including participants) */
 .Channel video {
   background-color: #333;
@@ -38,13 +42,6 @@
   /* object-fit: cover; */
   transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
   width: 100%;
-}
-
-/* Style specifically for participant videos */
-.Channel video:not(#localVideo) {
-  /* width: calc(50% - 5px); */
-  /* Two side-by-side on smaller screens */
-  /* aspect-ratio: 16 / 9; */
 }
 
 /* Animation for when a participant joins */

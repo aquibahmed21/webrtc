@@ -34,27 +34,6 @@ body {
   display: none;
 }
 
-
-.Channel {
-  /* display: flex; */
-  /* flex-direction: row; */
-  /* gap: 1rem; */
-  /* flex-wrap: wrap; */
-  /* justify-content: center; */
-  /* margin-bottom: 1rem; */
-  /* align-content: center; */
-  /* position: relative; */
-}
-
-video {
-  /* width: 100%; */
-  /* max-width: 420px; */
-  /* height: auto; */
-  /* border-radius: 0.75rem; */
-  /* background: #000; */
-  /* transition: transform 0.3s ease-in-out; */
-}
-
 video:hover {
   transform: scale(1.02);
 }
