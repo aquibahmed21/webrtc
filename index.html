@@ -5,22 +5,26 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KiteCite Call</title>
-  <meta name="format-detection" content="telephone=no" >
-  <meta name="description" content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
-  <meta name="og:description" content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
-  <meta name="og:title" content="KiteCite Call" >
-  <meta name="og:image" content="/images/webcam.svg" >
-  <meta name="og:url" content="https://aquibahmed21.github.io/webrtc" >
-  <meta name="og:type" content="website" >
-  <meta name="og:locale" content="en_US" >
-  <meta name="keywords" content="WebRTC, video conferencing, distributed teams, friends, virtual meeting, online meeting, web based video conferencing, peer to peer video conferencing, p2p video conferencing, webRTC video conferencing" >
+  <meta name="format-detection" content="telephone=no">
+  <meta name="description"
+    content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
+  <meta name="og:description"
+    content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
+  <meta name="og:title" content="KiteCite Call">
+  <meta name="og:image" content="/images/webcam.svg">
+  <meta name="og:url" content="https://aquibahmed21.github.io/webrtc">
+  <meta name="og:type" content="website">
+  <meta name="og:locale" content="en_US">
+  <meta name="keywords"
+    content="WebRTC, video conferencing, distributed teams, friends, virtual meeting, online meeting, web based video conferencing, peer to peer video conferencing, p2p video conferencing, webRTC video conferencing">
   <meta name="author" content="Aquib Ahmed">
   <meta name="msapplication-TileColor" content="#0f2027">
-  <meta name="theme-color" content="#2c5364">
+  <meta name="theme-color" content="#0f2027">
   <meta name="robots" content="index, follow">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="KiteCite Call">
-  <meta name="twitter:description" content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
+  <meta name="twitter:description"
+    content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
   <meta name="twitter:image" content="/images/webcam.svg">
   <meta property="og:site_name" content="KiteCite Call">
   <meta property="og:updated_time" content="2023-10-01T12:00:00Z">
@@ -30,6 +34,14 @@
   <meta property="og:image:type" content="image/svg+xml">
   <meta property="og:image:secure_url" content="/images/webcam.svg">
   <meta property="og:image:width" content="1200">
+
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0f2027">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
 
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
@@ -69,10 +81,31 @@
         <label for="audioOutputSelect">Select audio output device:</label>
         <select id="audioOutputSelect"></select>
       </div>
+      <div class="sub-control-recording" style="display:none;">
+        <button id="startRecording">Start Recording</button>
+        <button id="stopRecording" disabled>Stop Recording</button>
+        <a id="downloadRecording" style="display:none;" download="meeting-recording.webm">Download Recording</a>
+
+        <video id="screenVideo" autoplay muted playsinline></video>
+      </div>
     </div>
 
     <button id="refresh" onclick="location.reload()" title="Refresh page">&#x1f504;</button>
   </div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/webrtc/service-worker.js')
+          .then(registration => {
+            console.log('ServiceWorker registered:', registration);
+          })
+          .catch(error => {
+            console.log('ServiceWorker registration failed:', error);
+          });
+      });
+    }
+
+  </script>
   <script type="module" src="/src/app.js"></script>
 </body>
 
