@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -11,7 +11,7 @@
   <meta name="og:description"
     content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
   <meta name="og:title" content="KiteCite Call">
-  <meta name="og:image" content="/images/webcam.svg">
+  <meta name="og:image" content="/images/kitecite.svg">
   <meta name="og:url" content="https://aquibahmed21.github.io/webrtc">
   <meta name="og:type" content="website">
   <meta name="og:locale" content="en_US">
@@ -25,27 +25,26 @@
   <meta name="twitter:title" content="KiteCite Call">
   <meta name="twitter:description"
     content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
-  <meta name="twitter:image" content="/images/webcam.svg">
+  <meta name="twitter:image" content="/images/kitecite.svg">
   <meta property="og:site_name" content="KiteCite Call">
   <meta property="og:updated_time" content="2023-10-01T12:00:00Z">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="KiteCite Call">
   <meta property="og:image:type" content="image/svg+xml">
-  <meta property="og:image:secure_url" content="/images/webcam.svg">
+  <meta property="og:image:secure_url" content="/images/kitecite.svg">
   <meta property="og:image:width" content="1200">
 
 
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0f2027">
-  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="icon-192.png">
 
 
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
-  <link rel="icon" type="image/svg+xml" href="/images/webcam.svg">
+  <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
   <link rel="stylesheet" href="./src/style.css">
   <link rel="stylesheet" href="./src/channel.css">
 </head>
@@ -91,8 +90,22 @@
     </div>
 
     <button id="refresh" onclick="location.reload()" title="Refresh page">&#x1f504;</button>
+
+    <!-- Floating "Add to Home Screen" button -->
+    <button id="install-btn" class="install-btn">
+      <img src="images/add-to-home.svg" alt="Add to Home" class="install-icon">
+      <span>Add to Home Screen</span>
+    </button>
   </div>
   <script>
+    // Step 1: Ask for Permission
+    if ('Notification' in window && 'serviceWorker' in navigator) {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          console.log('Push notifications granted');
+        }
+      });
+    }
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/webrtc/service-worker.js')

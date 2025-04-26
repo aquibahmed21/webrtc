@@ -6,6 +6,7 @@
   "background_color": "#2c5364",
   "theme_color": "#0f2027",
   "orientation": "portrait",
+  
   "description": "KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!",
   "icons": [
     {
@@ -16,6 +17,15 @@
     {
       "src": "images/icon-512.png",
       "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "screenshots": [
+    {
+      "src": "/images/splash-screen.png",
+      "sizes": "2732x2732",
       "type": "image/png"
     }
   ]

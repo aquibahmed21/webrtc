@@ -98,6 +98,46 @@ select {
   margin-top: 0.5rem;
 }
 
+/* Basic button styling */
+.install-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #1e90ff;
+  color: white;
+  padding: 12px 24px;
+  /* border-radius: 50px; */
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.install-btn:hover {
+  background-color: #0056b3;
+  transform: translateY(-5px); /* Slight hover effect */
+}
+
+.install-icon {
+  width: 24px;
+  height: 24px;
+  margin-right: 8px; /* Space between icon and text */
+}
+
+.install-btn span {
+  font-weight: bold;
+}
+
+/* Hide the button by default */
+#install-btn {
+  display: none;
+}
+
+
 @keyframes fadeIn {
   from {
     opacity: 0;

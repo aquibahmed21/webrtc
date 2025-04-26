@@ -10,7 +10,7 @@ const urlsToCache = [
   "/webrtc/src/signalling.js",
   "/webrtc/src/style.css",
   "/webrtc/src/channel.css",
-  "/webrtc/images/webcam.svg",
+  "/webrtc/images/kitecite.svg",
   "/webrtc/images/icon-192.png",
   "/webrtc/images/icon-512.png"
 ];
@@ -52,5 +52,17 @@ self.addEventListener("activate", (event) => {
         })
       );
     })
+  );
+});
+
+self.addEventListener('push', event => {
+  const options = {
+    body: event.data.text(),
+    icon: '/images/icon-192.png',
+    badge: '/images/icon-192.png'
+  };
+
+  event.waitUntil(
+    self.registration.showNotification('New Message', options)
   );
 });

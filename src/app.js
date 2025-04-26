@@ -129,3 +129,35 @@ setupAudioOutputSelection();
 
 if (!isMobile)
   document.querySelector('#switchCamera').style.display = 'none';
+
+// ! Add to Home Screen
+let deferredPrompt;
+const installBtn = document.getElementById('install-btn');
+
+// Listen for the `beforeinstallprompt` event to show the A2HS button
+window.addEventListener('beforeinstallprompt', (event) => {
+  // Prevent the mini-info bar from appearing
+  event.preventDefault();
+  deferredPrompt = event;
+
+  // Show the A2HS button when the event is fired
+  installBtn.style.display = 'flex';
+
+  // Handle the click event to prompt the installation
+  installBtn.addEventListener('click', () => {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User accepted the A2HS prompt');
+      } else {
+        console.log('User dismissed the A2HS prompt');
+      }
+      deferredPrompt = null;
+    });
+  });
+});
+
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  installBtn.style.display = 'none'; // Hide the button if the app is already installed
+}
+// ! Add to Home Screen end
