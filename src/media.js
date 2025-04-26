@@ -1,4 +1,4 @@
-import { pcInfo } from './room.js';
+import { pcInfo, drone } from './room.js';
 
 let localwidth = 0;
 let localheight = 0;
@@ -8,17 +8,76 @@ let localfacingMode = 'user';
 
 const quality = document.querySelector('#quality');
 const framerate = document.querySelector('#framerate');
+const screenShare = document.querySelector('#shareScreen');
+const muteVideo = document.querySelector('#muteVideo');
+const switchCamerabutton = document.querySelector('#switchCamera');
+
 
 quality.addEventListener('change', async event => {
   if (!localstream) return;
   const [width, height] = event.target.value.split('x').map(Number);
   if (!await updateStream(width, height, localframeRate)) return;
 });
+
 framerate.addEventListener('change', async event => {
   if (!localstream) return;
 
   const framerate = Number(event.target.value);
   if (!await updateStream(localwidth, localheight, framerate)) return;
+});
+
+screenShare.addEventListener('click', async event =>
+{
+  const localVideo = document.querySelector("#localVideo");
+  event.target.setAttribute('disabled', 'true');
+  if (event.target.getAttribute('isShared') === 'true')
+  {
+    event.target.textContent = 'Share Screen';
+    event.target.setAttribute('isShared', 'false');
+    muteVideo.removeAttribute('disabled');
+    quality.removeAttribute('disabled');
+    framerate.removeAttribute('disabled');
+    switchCamerabutton.removeAttribute('disabled');
+    event.target.removeAttribute('disabled');
+    localVideo.removeAttribute('screenShare');
+    await updateStream(localwidth, localheight, localframeRate);
+    drone.publish({ room: ROOM_NAME, message: { type: 'screenShare', from: drone.clientId, isShared: false } });
+    return;
+  }
+
+  if (!localstream) return;
+
+  try {
+    // 1. Capture screen
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { cursor: 'always' },
+      audio: false
+    });
+
+    event.target.textContent = 'Stop Sharing';
+    event.target.setAttribute('isShared', 'true');
+    muteVideo.setAttribute('disabled', 'true');
+    quality.setAttribute('disabled', 'true');
+    framerate.setAttribute('disabled', 'true');
+    switchCamerabutton.setAttribute('disabled', 'true');
+    localVideo.setAttribute('screenShare', 'true');
+
+    if (localstream) {
+      localstream.getVideoTracks()[0].stop();
+      localstream.removeTrack(localstream.getVideoTracks()[0]);
+    }
+
+    // 2. Replace local video track
+    const videoTrack = screenStream.getVideoTracks()[0];
+    localstream.addTrack(videoTrack);
+    await updateLocalVideoStream();
+    drone.publish({ room: ROOM_NAME, message: { type: 'screenShare', from: drone.clientId, isShared: true } });
+  } catch (err) {
+    console.error('Error starting screen share:', err);
+  }
+  finally {
+    event.target.removeAttribute('disabled');
+  }
 });
 
 async function getMediaStream(width, height, frameRate, newFacing) {
@@ -107,8 +166,27 @@ export function createVideoElement(stream, id, isLocal = false) {
     video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode || 'user');
   }
   else
+  {
     document.getElementsByClassName("Channel")[0].prepend(video);
+    handleIncomingStream(stream, video);
+  }
 }
+
+function handleIncomingStream(stream, video) {
+
+  const audioContext = new AudioContext();
+  const source = audioContext.createMediaStreamSource(stream);
+  const gainNode = audioContext.createGain();
+
+  // Boost the gain
+  gainNode.gain.value = 3.0; // 1.0 is normal, 2.0 is double volume
+
+  source.connect(gainNode).connect(audioContext.destination);
+
+  video.srcObject = stream;
+  video.volume = 0; // mute video element to avoid double audio
+}
+
 
 async function updateLocalVideoStream() {
   const pc = pcInfo;

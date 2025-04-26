@@ -5,6 +5,53 @@ import { setupRoom, pcInfo, drone } from './room.js';
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
 
+document.querySelector("#audioOutputSelect").addEventListener('change', event => {
+  const selectedDeviceId = audioOutputSelect.value;
+  const remoteVideos = document.querySelectorAll('video:not(#localVideo)');
+  try {
+    remoteVideos.forEach(async remoteVideo => {
+      await remoteVideo.setSinkId(selectedDeviceId);
+    })
+      console.log(`Audio output set to device: ${selectedDeviceId}`);
+  } catch (err) {
+      console.error('Error setting audio output device:', err);
+  }
+});
+
+navigator.mediaDevices.addEventListener('devicechange', () => {
+  setupAudioOutputSelection();
+});
+
+async function setupAudioOutputSelection() {
+  const remoteVideos = document.querySelectorAll('video:not(#localVideo)');
+
+  for (const remoteVideo of remoteVideos)
+  {
+    if (typeof remoteVideo.setSinkId === 'undefined') {
+      console.log('Audio output device selection is not supported on this device.');
+      return; // No sinkId support
+    }
+  }
+
+  try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+
+      if (audioOutputs.length > 0) {
+
+          audioOutputs.forEach(device => {
+            if (audioOutputSelect.querySelector(`option[value="${device.deviceId}"]`)) return;
+              const option = document.createElement('option');
+              option.value = device.deviceId;
+              option.text = device.label || `Speaker ${audioOutputSelect.length + 1}`;
+              audioOutputSelect.appendChild(option);
+          });
+      }
+  } catch (err) {
+      console.error('Error fetching audio output devices:', err);
+  }
+}
+
 document.querySelector("#controls").addEventListener('click', async event => {
   const target = event.target;
   const targetID = event.target.id;
@@ -77,6 +124,8 @@ async function main() {
     }
   });
 }
+
+setupAudioOutputSelection();
 
 if (!isMobile)
   document.querySelector('#switchCamera').style.display = 'none';

@@ -27,10 +27,15 @@
   transition: width 0.3s ease-in-out, height 0.3s ease-in-out;
 }
 
+video#localVideo[screenshare="true"] {
+  transform: scale(1, 1);
+}
+
 #localVideo[mode="user"] {
   transform: scale(-1, 1);
 }
 
+.Channel [screenShare="true"],
 .Channel:has(:only-child) video {
   width: 100% !important;
 }

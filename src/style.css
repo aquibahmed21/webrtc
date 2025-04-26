@@ -89,6 +89,7 @@ select {
   color: #fff;
   margin-right: 1rem;
   transition: all 0.3s ease;
+  outline: none;
 }
 
 label,

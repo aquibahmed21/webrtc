@@ -98,6 +98,14 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         createPeerConnection(senderId, true, onRemoteTrack);
         break;
 
+      case 'screenShare':
+        {
+          const videoEl = document.getElementById(senderId);
+          if (videoEl)
+            data.isShared === true? videoEl.setAttribute('screenShare', 'true') : videoEl.removeAttribute('screenShare');
+        }
+        break;
+
       default: console.warn('Unknown data type:', data.type);
     }
   }

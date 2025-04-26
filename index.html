@@ -46,6 +46,7 @@
       <button id="muteAudio">Mute Audio</button>
       <button id="muteVideo">Mute Video</button>
       <button id="switchCamera">Switch Camera</button>
+      <button id="shareScreen" isShared="false">Share Screen</button>
       <button id="hangup">Hang Up</button>
       <div class="sub-control">
         <label for="quality">Select quality:</label>
@@ -64,6 +65,9 @@
           <option value="30">30</option>
           <option value="60">60</option>
         </select>
+        <br>
+        <label for="audioOutputSelect">Select audio output device:</label>
+        <select id="audioOutputSelect"></select>
       </div>
     </div>
 
