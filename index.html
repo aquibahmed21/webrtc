@@ -106,6 +106,7 @@
         }
       });
     }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/webrtc/service-worker.js')
@@ -117,6 +118,17 @@
           });
       });
     }
+
+    window.addEventListener("beforeunload", function (event) {
+      // Standard for most browsers
+      const message = "Do you want to exit?";
+
+      // Some browsers require setting the returnValue property
+      event.returnValue = message; // Chrome, Firefox, etc.
+
+      // Older browsers might use the returnValue property to show a custom message
+      return message;  // For older browsers like Internet Explorer
+    });
 
   </script>
   <script type="module" src="/src/app.js"></script>
