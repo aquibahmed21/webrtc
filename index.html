@@ -34,8 +34,8 @@
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
   <link rel="icon" type="image/svg+xml" href="/webrtc/images/webcam.svg">
-  <script type="module" crossorigin src="/webrtc/assets/index-BuaNzuPq.js"></script>
-  <link rel="stylesheet" crossorigin href="/webrtc/assets/index-5dUf5QwO.css">
+  <script type="module" crossorigin src="/webrtc/assets/index-BQ2TC5LW.js"></script>
+  <link rel="stylesheet" crossorigin href="/webrtc/assets/index-LOxig4K_.css">
 </head>
 
 <body>
@@ -46,6 +46,7 @@
       <button id="muteAudio">Mute Audio</button>
       <button id="muteVideo">Mute Video</button>
       <button id="switchCamera">Switch Camera</button>
+      <button id="shareScreen" isShared="false">Share Screen</button>
       <button id="hangup">Hang Up</button>
       <div class="sub-control">
         <label for="quality">Select quality:</label>
@@ -64,6 +65,9 @@
           <option value="30">30</option>
           <option value="60">60</option>
         </select>
+        <br>
+        <label for="audioOutputSelect">Select audio output device:</label>
+        <select id="audioOutputSelect"></select>
       </div>
     </div>
 
