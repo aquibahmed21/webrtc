@@ -102,13 +102,13 @@
   </div>
   <script>
     // Step 1: Ask for Permission
-    if ('Notification' in window && 'serviceWorker' in navigator) {
-      Notification.requestPermission().then(permission => {
-        if (permission === 'granted') {
-          console.log('Push notifications granted');
-        }
-      });
-    }
+    // if ('Notification' in window && 'serviceWorker' in navigator) {
+    //   Notification.requestPermission().then(permission => {
+    //     if (permission === 'granted') {
+    //       console.log('Push notifications granted');
+    //     }
+    //   });
+    // }
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -122,16 +122,16 @@
       });
     }
 
-    window.addEventListener("beforeunload", function (event) {
-      // Standard for most browsers
-      const message = "Do you want to exit?";
+    // window.addEventListener("beforeunload", function (event) {
+    //   // Standard for most browsers
+    //   const message = "Do you want to exit?";
 
-      // Some browsers require setting the returnValue property
-      event.returnValue = message; // Chrome, Firefox, etc.
+    //   // Some browsers require setting the returnValue property
+    //   event.returnValue = message; // Chrome, Firefox, etc.
 
-      // Older browsers might use the returnValue property to show a custom message
-      return message;  // For older browsers like Internet Explorer
-    });
+    //   // Older browsers might use the returnValue property to show a custom message
+    //   return message;  // For older browsers like Internet Explorer
+    // });
 
   </script>
   <script type="module" src="/src/app.js"></script>

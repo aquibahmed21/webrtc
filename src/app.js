@@ -1,10 +1,12 @@
 // app.js
 import { getLocalStream, createVideoElement, switchCamera } from './media.js';
 import { setupRoom, pcInfo, drone } from './room.js';
-import { showToast } from './toast.js';
 
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
+
+const muteVideo = document.querySelector('#muteVideo');
+const muteAudio = document.querySelector('#muteAudio');
 
 document.querySelector("#audioOutputSelect").addEventListener('change', event => {
   const selectedDeviceId = audioOutputSelect.value;
@@ -12,10 +14,10 @@ document.querySelector("#audioOutputSelect").addEventListener('change', event =>
   try {
     remoteVideos.forEach(async remoteVideo => {
       await remoteVideo.setSinkId(selectedDeviceId);
-    })
-      console.log(`Audio output set to device: ${selectedDeviceId}`);
+    });
+    console.log(`Audio output set to device: ${selectedDeviceId}`);
   } catch (err) {
-      console.error('Error setting audio output device:', err);
+    console.error('Error setting audio output device:', err);
   }
 });
 
@@ -26,8 +28,7 @@ navigator.mediaDevices.addEventListener('devicechange', () => {
 async function setupAudioOutputSelection() {
   const remoteVideos = document.querySelectorAll('video:not(#localVideo)');
 
-  for (const remoteVideo of remoteVideos)
-  {
+  for (const remoteVideo of remoteVideos) {
     if (typeof remoteVideo.setSinkId === 'undefined') {
       console.log('Audio output device selection is not supported on this device.');
       return; // No sinkId support
@@ -35,21 +36,21 @@ async function setupAudioOutputSelection() {
   }
 
   try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
 
-      if (audioOutputs.length > 0) {
-
-          audioOutputs.forEach(device => {
-            if (audioOutputSelect.querySelector(`option[value="${device.deviceId}"]`)) return;
-              const option = document.createElement('option');
-              option.value = device.deviceId;
-              option.text = device.label || `Speaker ${audioOutputSelect.length + 1}`;
-              audioOutputSelect.appendChild(option);
-          });
-      }
+    if (audioOutputs.length > 0)
+    {
+        audioOutputs.forEach(device => {
+        if (audioOutputSelect.querySelector(`option[value="${device.deviceId}"]`)) return;
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.text = device.label || device.kind || `Speaker ${audioOutputSelect.length + 1}`;
+        audioOutputSelect.appendChild(option);
+      });
+    }
   } catch (err) {
-      console.error('Error fetching audio output devices:', err);
+    console.error('Error fetching audio output devices:', err);
   }
 }
 
@@ -63,11 +64,11 @@ document.querySelector("#controls").addEventListener('click', async event => {
       target.disabled = false;
       break;
     case 'muteAudio':
-      target.textContent = "🔇 " + localStream.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio';
+      target.textContent = "🔇 " + (localStream.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio');
       localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled;
       break;
     case 'muteVideo':
-      target.textContent = "🎥 " + localStream.getVideoTracks()[0].enabled ? 'Unmute Video' : 'Mute Video';
+      target.textContent = "🎥 " + (localStream.getVideoTracks()[0].enabled ? 'Unmute Video' : 'Mute Video');
       localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled;
       break;
     case 'switchCamera':
@@ -75,6 +76,8 @@ document.querySelector("#controls").addEventListener('click', async event => {
       break;
     case 'hangup':
       // Mute the local video and audio tracks before stopping
+      muteVideo.textContent = "🎥 Mute Video";
+      muteAudio.textContent = "🔇 Mute Audio";
       if (localStream) {
         localStream.getTracks().forEach(track => {
           track.enabled = false; // Mute the track
@@ -98,7 +101,6 @@ document.querySelector("#controls").addEventListener('click', async event => {
             pcInfo.getSenders().forEach(sender => {
               if (sender.track) sender.track.stop();
             });
-            // pcInfo.close();
           }
         }, 300); // ~300ms delay
       }

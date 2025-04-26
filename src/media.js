@@ -33,7 +33,7 @@ screenShare.addEventListener('click', async event =>
   event.target.setAttribute('disabled', 'true');
   if (event.target.getAttribute('isShared') === 'true')
   {
-    event.target.textContent = 'Share Screen';
+    event.target.textContent = '🖥️ Share Screen';
     event.target.setAttribute('isShared', 'false');
     muteVideo.removeAttribute('disabled');
     quality.removeAttribute('disabled');
@@ -55,7 +55,7 @@ screenShare.addEventListener('click', async event =>
         mediaSource: 'screen' // Can be 'screen' or 'window' depending on the browser
       }});
 
-    event.target.textContent = 'Stop Sharing';
+    event.target.textContent = '🖥️ Stop Sharing';
     event.target.setAttribute('isShared', 'true');
     muteVideo.setAttribute('disabled', 'true');
     quality.setAttribute('disabled', 'true');
@@ -175,18 +175,69 @@ export function createVideoElement(stream, id, isLocal = false) {
 }
 
 function handleIncomingStream(stream, video) {
-
+  const threshold = 20;  // Adjust this threshold based on testing
   const audioContext = new AudioContext();
   const source = audioContext.createMediaStreamSource(stream);
+
   const gainNode = audioContext.createGain();
 
   // Boost the gain
-  gainNode.gain.value = 3.0; // 1.0 is normal, 2.0 is double volume
+  gainNode.gain.value = 1.0; // 1.0 is normal, 2.0 is double volume
+
+  // Create AnalyserNode for frequency data analysis
+  const analyserNode = audioContext.createAnalyser();
+  analyserNode.fftSize = 256;  // Set FFT size
+  const bufferLength = analyserNode.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+
+  // Connect the microphone to the analyser
+  source.connect(analyserNode);
 
   source.connect(gainNode).connect(audioContext.destination);
 
   video.srcObject = stream;
   video.volume = 0; // mute video element to avoid double audio
+  let isSpeaking = false;  // State to keep track of the speaking status
+    // Monitor audio levels periodically
+  setInterval(() => {
+    analyserNode.getByteFrequencyData(dataArray);  // Get frequency data
+
+    // Calculate the total energy (volume level)
+    let totalEnergy = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      totalEnergy += dataArray[i];
+    }
+
+    const averageEnergy = totalEnergy / dataArray.length;
+    console.log({
+      totalEnergy: totalEnergy,
+      averageEnergy: totalEnergy / dataArray.length,
+      threshold,
+    })
+
+    // If the energy exceeds the threshold, assume the user is speaking
+    if (averageEnergy > threshold) {
+      if (!isSpeaking) {
+        isSpeaking = true;
+        highlightSpeaker(true, video);  // Mark the speaker as active
+      }
+    } else {
+      if (isSpeaking) {
+        isSpeaking = false;
+        highlightSpeaker(false, video);  // Mark the speaker as inactive
+      }
+    }
+  }, 100);  // Check every 100ms (adjust the interval for smoother performance)
+}
+
+function highlightSpeaker(isSpeaking, video) {
+  const speakerGrid = video;
+
+  if (isSpeaking) {
+    speakerGrid.style.border = "2px solid #1e90ff";  // Example: highlight with a green border
+  } else {
+    speakerGrid.style.border = "none";  // Remove highlight
+  }
 }
 
 
