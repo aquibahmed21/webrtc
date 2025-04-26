@@ -50,9 +50,9 @@ screenShare.addEventListener('click', async event =>
   try {
     // 1. Capture screen
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { cursor: 'always' },
-      audio: false
-    });
+      video: {
+        mediaSource: 'screen' // Can be 'screen' or 'window' depending on the browser
+      }});
 
     event.target.textContent = 'Stop Sharing';
     event.target.setAttribute('isShared', 'true');
@@ -279,3 +279,24 @@ export async function createOfferWithPreferredCodec(pc) {
   return offer;
 }
 
+function checkScreenSharingSupport() {
+  // iOS check
+  const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
+
+
+  if (isIos) {
+    console.log("Screen sharing is not supported on iOS devices via web apps. Please use a native app or WebView.");
+    screenShare.setAttribute('disabled', 'true');
+    return false;
+  } else if ('mediaDevices' in navigator && 'getDisplayMedia' in navigator.mediaDevices) {
+    console.log("Screen sharing is supported on this platform.");
+    return true;
+  } else {
+    alert("Screen sharing is not supported on this platform.");
+    screenShare.setAttribute('disabled', 'true');
+    return false;
+  }
+}
+
+checkScreenSharingSupport();
