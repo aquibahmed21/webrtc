@@ -1,6 +1,7 @@
 // app.js
 import { getLocalStream, createVideoElement, switchCamera } from './media.js';
 import { setupRoom, pcInfo, drone } from './room.js';
+import { showToast } from './toast.js';
 
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
@@ -10,7 +11,7 @@ const muteAudio = document.querySelector('#muteAudio');
 
 document.querySelector("#audioOutputSelect").addEventListener('change', event => {
   const selectedDeviceId = audioOutputSelect.value;
-  const remoteVideos = document.querySelectorAll('video:not(#localVideo)');
+  const remoteVideos = document.querySelectorAll('video[isRemote]');
   try {
     remoteVideos.forEach(async remoteVideo => {
       await remoteVideo.setSinkId(selectedDeviceId);
@@ -26,18 +27,10 @@ navigator.mediaDevices.addEventListener('devicechange', () => {
 });
 
 async function setupAudioOutputSelection() {
-  const remoteVideos = document.querySelectorAll('video:not(#localVideo)');
-
-  for (const remoteVideo of remoteVideos) {
-    if (typeof remoteVideo.setSinkId === 'undefined') {
-      console.log('Audio output device selection is not supported on this device.');
-      return; // No sinkId support
-    }
-  }
 
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+    const audioOutputs = devices.filter(device => device.kind === 'audiooutput' || device.label.includes("headset"));
 
     if (audioOutputs.length > 0)
     {
@@ -73,6 +66,9 @@ document.querySelector("#controls").addEventListener('click', async event => {
       break;
     case 'switchCamera':
       await switchCamera();
+      break;
+    case 'audioOutputRefresh':
+      setupAudioOutputSelection();
       break;
     case 'hangup':
       // Mute the local video and audio tracks before stopping
@@ -145,6 +141,10 @@ window.addEventListener('beforeinstallprompt', (event) => {
 
   // Show the A2HS button when the event is fired
   installBtn.style.display = 'flex';
+  setTimeout(() => {
+    installBtn.style.display = 'none';
+    showToast('Info', 'You can add this app to your home screen!');
+  }, 15000);
 
   // Handle the click event to prompt the installation
   installBtn.addEventListener('click', () => {

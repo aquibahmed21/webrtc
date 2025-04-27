@@ -42,7 +42,7 @@ screenShare.addEventListener('click', async event =>
     event.target.removeAttribute('disabled');
     localVideo.removeAttribute('screenShare');
     await updateStream(localwidth, localheight, localframeRate);
-    drone.publish({ room: ROOM_NAME, message: { type: 'screenShare', from: drone.clientId, isShared: false } });
+    drone.publish({ room: Object.keys(drone.rooms)[0], message: { type: 'screenShare', from: drone.clientId, isShared: false } });
     return;
   }
 
@@ -72,7 +72,7 @@ screenShare.addEventListener('click', async event =>
     const videoTrack = screenStream.getVideoTracks()[0];
     localstream.addTrack(videoTrack);
     await updateLocalVideoStream();
-    drone.publish({ room: ROOM_NAME, message: { type: 'screenShare', from: drone.clientId, isShared: true } });
+    drone.publish({ room: Object.keys(drone.rooms)[0], message: { type: 'screenShare', from: drone.clientId, isShared: true } });
   } catch (err) {
     console.error('Error starting screen share:', err);
   }
@@ -169,6 +169,7 @@ export function createVideoElement(stream, id, isLocal = false) {
   }
   else
   {
+    video.setAttribute("isRemote", "true");
     document.getElementsByClassName("Channel")[0].prepend(video);
     handleIncomingStream(stream, video);
   }
@@ -182,7 +183,7 @@ function handleIncomingStream(stream, video) {
   const gainNode = audioContext.createGain();
 
   // Boost the gain
-  gainNode.gain.value = 1.0; // 1.0 is normal, 2.0 is double volume
+  gainNode.gain.value = 2.5; // 1.0 is normal, 2.0 is double volume, 3.0 is triple volume
 
   // Create AnalyserNode for frequency data analysis
   const analyserNode = audioContext.createAnalyser();
