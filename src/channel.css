@@ -66,6 +66,10 @@ video#localVideo[screenshare="true"] {
   transform: scale(1);
 }
 
+.Channel video[isRemote="true"] {
+  border: 2px solid transparent;
+}
+
 .Channel video.participant-leave.left {
   opacity: 0;
   transform: scale(0.8);

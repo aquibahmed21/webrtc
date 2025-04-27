@@ -7,6 +7,8 @@ export function showToast(type, message) {
   toast.classList.add('toast', type.toLowerCase());
   toast.textContent = message;
 
+  toastContainer.innerHTML = '';
+
   // Append toast to the container
   toastContainer.appendChild(toast);
 

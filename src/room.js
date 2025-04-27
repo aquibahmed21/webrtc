@@ -61,6 +61,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     switch (data.type) {
       case 'offer':
+        console.log('Received an offer from', senderId);
         createPeerConnection(senderId, false, onRemoteTrack);
         peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.offer));
         peerConnections[senderId]
@@ -72,18 +73,21 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         break;
 
       case 'answer':
+        console.log('Received an answer from', senderId);
         if (data.to === drone.clientId && peerConnections[senderId]) {
           peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.answer));
         }
         break;
 
       case 'candidate':
+        console.log('Received a candidate from', senderId);
         if (data.to === drone.clientId && peerConnections[senderId]) {
           peerConnections[senderId].addIceCandidate(new RTCIceCandidate(data.candidate));
         }
         break;
 
       case 'leave':
+        console.log(senderId, 'has left the room');
         // Remove video from DOM
         const videoEl = document.getElementById(senderId);
         if (videoEl) videoEl.remove();
@@ -96,6 +100,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         break;
 
       case 'join':
+        console.log(senderId, 'has joined the room');
         createPeerConnection(senderId, true, onRemoteTrack);
         break;
 
@@ -114,6 +119,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
   }
 
   room.on('members', members => {
+    console.log('Members connected:', members);
     members.forEach(member => {
       if (member.id !== drone.clientId) {
         createPeerConnection(member.id, true, onRemoteTrack);
@@ -127,7 +133,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     // Log when ICE candidates are gathered
     pc.onicecandidate = event => {
       if (event.candidate) {
-        console.log("New ICE Candidate:", event.candidate);
+        // console.log("New ICE Candidate:", event.candidate);
         drone.publish({
           room: ROOM_NAME,
           message: { type: 'candidate', candidate: event.candidate, to: id }
@@ -140,18 +146,18 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     // Log ICE connection state changes
     pc.oniceconnectionstatechange = () => {
-      console.log("ICE connection state changed:", pc.iceConnectionState);
+      // console.log("ICE connection state changed:", pc.iceConnectionState);
 
       if (pc.iceConnectionState === "failed") {
-        console.warn("ICE Connection failed. Likely need TURN.");
+        // console.warn("ICE Connection failed. Likely need TURN.");
         document.getElementById(id)?.remove();
         showToast('Error', 'Connection failed. User is not connected!');
       } else if (pc.iceConnectionState === "disconnected") {
-        console.warn("ICE Connection disconnected. Could be a network issue.");
+        // console.warn("ICE Connection disconnected. Could be a network issue.");
         document.getElementById(id)?.remove();
         showToast('Error', 'Connection disconnected. Could be a network issue!');
       } else if (pc.iceConnectionState === "closed") {
-        console.warn("ICE Connection closed.");
+        // console.warn("ICE Connection closed.");
         document.getElementById(id)?.remove();
         showToast('Info', 'User has left the room!');
       }
@@ -159,17 +165,17 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     // Optional: catch connection state changes
     pc.onconnectionstatechange = () => {
-      console.log("PeerConnection state:", pc.connectionState);
+      // console.log("PeerConnection state:", pc.connectionState);
     };
 
     // Optional: handle negotiation
     pc.onnegotiationneeded = () => {
-      console.log("Negotiation needed");
+      // console.log("Negotiation needed");
     };
 
     // Log signaling state changes
     pc.onsignalingstatechange = () => {
-      console.log("Signaling state changed:", pc.signalingState);
+      // console.log("Signaling state changed:", pc.signalingState);
     };
 
     // Log when tracks are added

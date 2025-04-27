@@ -27,12 +27,10 @@ framerate.addEventListener('change', async event => {
   if (!await updateStream(localwidth, localheight, framerate)) return;
 });
 
-screenShare.addEventListener('click', async event =>
-{
+screenShare.addEventListener('click', async event => {
   const localVideo = document.querySelector("#localVideo");
   event.target.setAttribute('disabled', 'true');
-  if (event.target.getAttribute('isShared') === 'true')
-  {
+  if (event.target.getAttribute('isShared') === 'true') {
     event.target.textContent = '🖥️ Share Screen';
     event.target.setAttribute('isShared', 'false');
     muteVideo.removeAttribute('disabled');
@@ -53,7 +51,8 @@ screenShare.addEventListener('click', async event =>
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         mediaSource: 'screen' // Can be 'screen' or 'window' depending on the browser
-      }});
+      }
+    });
 
     event.target.textContent = '🖥️ Stop Sharing';
     event.target.setAttribute('isShared', 'true');
@@ -162,13 +161,14 @@ export function createVideoElement(stream, id, isLocal = false) {
   video.autoplay = true;
   video.playsInline = true;
 
+  video.setAttribute("memberId", id);
+
   if (isLocal) {
     video.muted = true;
     document.getElementsByClassName("Channel")[0].appendChild(video);
     video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode || 'user');
   }
-  else
-  {
+  else {
     video.setAttribute("isRemote", "true");
     document.getElementsByClassName("Channel")[0].prepend(video);
     handleIncomingStream(stream, video);
@@ -199,7 +199,7 @@ function handleIncomingStream(stream, video) {
   video.srcObject = stream;
   video.volume = 0; // mute video element to avoid double audio
   let isSpeaking = false;  // State to keep track of the speaking status
-    // Monitor audio levels periodically
+  // Monitor audio levels periodically
   setInterval(() => {
     analyserNode.getByteFrequencyData(dataArray);  // Get frequency data
 
@@ -210,11 +210,11 @@ function handleIncomingStream(stream, video) {
     }
 
     const averageEnergy = totalEnergy / dataArray.length;
-    console.log({
-      totalEnergy: totalEnergy,
-      averageEnergy: totalEnergy / dataArray.length,
-      threshold,
-    })
+    // console.log({
+    //   totalEnergy: totalEnergy,
+    //   averageEnergy: totalEnergy / dataArray.length,
+    //   threshold,
+    // })
 
     // If the energy exceeds the threshold, assume the user is speaking
     if (averageEnergy > threshold) {
@@ -237,7 +237,7 @@ function highlightSpeaker(isSpeaking, video) {
   if (isSpeaking) {
     speakerGrid.style.border = "2px solid #1e90ff";  // Example: highlight with a green border
   } else {
-    speakerGrid.style.border = "none";  // Remove highlight
+    speakerGrid.style.border = "";  // Remove highlight
   }
 }
 
