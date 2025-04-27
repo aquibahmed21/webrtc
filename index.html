@@ -45,7 +45,7 @@
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
   <link rel="icon" type="image/x-icon" href="/webrtc/images/favicon.ico">
-  <script type="module" crossorigin src="/webrtc/assets/index-D_B0RGu9.js"></script>
+  <script type="module" crossorigin src="/webrtc/assets/index-Cv_49IBf.js"></script>
   <link rel="stylesheet" crossorigin href="/webrtc/assets/index-CUgU11_K.css">
 </head>
 
@@ -80,14 +80,16 @@
           <option value="60">60</option>
         </select>
         <br>
-        <label for="audioOutputSelect">Select audio output device:</label>
-        <select id="audioOutputSelect"></select>
+        <div>
+          <label for="audioOutputSelect">Select audio output device:</label>
+          <select id="audioOutputSelect"></select>
+          <button id="audioOutputRefresh" title="Refresh audio output devices">🔄</button>
+        </div>
       </div>
       <div class="sub-control-recording" style="display:none;">
         <button id="startRecording">Start Recording</button>
         <button id="stopRecording" disabled>Stop Recording</button>
         <a id="downloadRecording" style="display:none;" download="meeting-recording.webm">Download Recording</a>
-
         <video id="screenVideo" autoplay muted playsinline></video>
       </div>
     </div>
