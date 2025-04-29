@@ -1,6 +1,8 @@
 import { pcInfo, drone } from './room.js';
 import { showToast } from './toast.js';
 
+const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
+
 let localwidth = 0;
 let localheight = 0;
 let localstream = null;
@@ -40,7 +42,7 @@ screenShare.addEventListener('click', async event => {
     event.target.removeAttribute('disabled');
     localVideo.removeAttribute('screenShare');
     await updateStream(localwidth, localheight, localframeRate);
-    drone.publish({ room: Object.keys(drone.rooms)[0], message: { type: 'screenShare', from: drone.clientId, isShared: false } });
+    drone.publish({ room: Object.keys(drone.rooms)[0], message: { type: 'screenShare', from: drone.clientId, isShared: false, userInfo } });
     return;
   }
 
@@ -71,7 +73,7 @@ screenShare.addEventListener('click', async event => {
     const videoTrack = screenStream.getVideoTracks()[0];
     localstream.addTrack(videoTrack);
     await updateLocalVideoStream();
-    drone.publish({ room: Object.keys(drone.rooms)[0], message: { type: 'screenShare', from: drone.clientId, isShared: true } });
+    drone.publish({ room: Object.keys(drone.rooms)[0], message: { type: 'screenShare', from: drone.clientId, isShared: true, userInfo } });
   } catch (err) {
     console.error('Error starting screen share:', err);
   }

@@ -8,6 +8,21 @@ let localStream = null;
 
 const muteVideo = document.querySelector('#muteVideo');
 const muteAudio = document.querySelector('#muteAudio');
+const userInfoModal = document.querySelector('#userInfoModal');
+
+let userInfo = window.localStorage.getItem('userInfo');
+
+if (!userInfo)
+  openModal();
+else
+{
+  userInfo = JSON.parse(userInfo);
+  const {nickname,gender,status,age} = userInfo;
+  // ! check if all info is available
+  if (!nickname || !gender || !status || !age)
+    openModal();
+}
+
 
 document.querySelector("#audioOutputSelect").addEventListener('change', event => {
   const selectedDeviceId = audioOutputSelect.value;
@@ -87,7 +102,7 @@ document.querySelector("#controls").addEventListener('click', async event => {
           // Notify other peers you're leaving
           drone.publish({
             room: Object.keys(drone.rooms)[0],
-            message: { type: 'leave', from: drone.clientId }
+            message: { type: 'leave', from: drone.clientId, userInfo }
           });
 
           document.querySelector(".Channel").innerHTML = "";
@@ -112,7 +127,7 @@ async function main() {
     // Notify other peers you're joining
     drone.publish({
       room: Object.keys(drone.rooms)[0],
-      message: { type: 'join', from: drone.clientId }
+      message: { type: 'join', from: drone.clientId, userInfo }
     });
     return;
   }
@@ -164,3 +179,63 @@ if (window.matchMedia('(display-mode: standalone)').matches) {
   installBtn.style.display = 'none'; // Hide the button if the app is already installed
 }
 // ! Add to Home Screen end
+
+userInfoModal.addEventListener('click', event => {
+
+  if (event.target === userInfoModal || event.target.id === 'closeModal')
+    closeModal();
+  else if (event.target.id === 'submit-btn')
+  {
+    event.stopPropagation();
+    const nickname = document.querySelector('#nickname').value;
+    const gender = document.querySelector('#gender').value;
+    const status = document.querySelector('#status').value;
+    const age = document.querySelector('#age').value;
+    if (!nickname || !gender || !status || !age) {
+      showToast('Error', 'Please fill all the fields!');
+      return;
+    }
+    userInfo = { nickname, gender, status, age, id: new Date().getTime() };
+    window.localStorage.setItem('userInfo', JSON.stringify(userInfo));
+    closeModal();
+  }
+});
+
+// Open the modal
+function openModal() {
+  userInfoModal.classList.add("show-modal");
+  const userInfo = window.localStorage.getItem('userInfo');
+  const h4 = document.querySelector('h4');
+  if (userInfo) {
+    document.querySelector('#nickname').value = JSON.parse(userInfo).nickname;
+    document.querySelector('#gender').value = JSON.parse(userInfo).gender;
+    document.querySelector('#status').value = JSON.parse(userInfo).status;
+    document.querySelector('#age').value = JSON.parse(userInfo).age;
+    h4.innerHTML = "Video Conferencing with KiteCite";
+  }
+  else {
+    document.querySelector('#start').setAttribute('disabled', true);
+    h4.innerHTML = "Dear Anonymous User, Please Enter Your Details";
+  }
+}
+
+// Close the modal
+function closeModal() {
+  const userInfo = window.localStorage.getItem('userInfo');
+  const h4 = document.querySelector('h4');
+  userInfoModal.classList.remove("show-modal");
+  if (userInfo) {
+    document.querySelector('#nickname').value = "";
+    document.querySelector('#gender').value = "";
+    document.querySelector('#status').value = "";
+    document.querySelector('#age').value = "";
+    h4.innerHTML = "Video Conferencing with KiteCite";
+    document.querySelector('#start').removeAttribute('disabled');
+    h4.removeEventListener('click', openModal);
+  }
+  else {
+    document.querySelector('#start').setAttribute('disabled', true);
+    h4.innerHTML = "Dear Anonymous User, Please Enter Your Details By Clicking Here";
+    h4.addEventListener('click', openModal);
+  }
+}

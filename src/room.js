@@ -3,6 +3,9 @@ import { createScaledrone } from './signalling.js';
 import { createOfferWithPreferredCodec } from './media.js';
 import { showToast } from './toast.js';
 
+const membersList = [];
+const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
+
 const peerConnections = {};
 let localStream;
 export let pcInfo = null;
@@ -49,6 +52,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
   function handleOpen(error) {
     if (error) return console.error(error);
+
     console.log('Connected to Scaledrone');
   }
 
@@ -68,7 +72,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
           .createAnswer()
           .then(answer => {
             peerConnections[senderId].setLocalDescription(answer);
-            drone.publish({ room: ROOM_NAME, message: { type: 'answer', answer, to: senderId } });
+            drone.publish({ room: ROOM_NAME, message: { type: 'answer', answer, to: senderId, userInfo } });
           });
         break;
 
@@ -88,9 +92,17 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
       case 'leave':
         console.log(senderId, 'has left the room');
+        const index = membersList.findIndex(memberObj => member.id === memberObj.id);
         // Remove video from DOM
         const videoEl = document.getElementById(senderId);
-        if (videoEl) videoEl.remove();
+        if (videoEl)
+        {
+          videoEl.remove();
+          if (index > -1)
+            showToast('Info', membersList[index].clientData.userInfo.nickname + ' has left the room!');
+        }
+        membersList.splice(index, 1);
+
 
         // Close and delete the peer connection
         if (peerConnections[senderId]) {
@@ -100,6 +112,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         break;
 
       case 'join':
+        membersList.push(member);
         console.log(senderId, 'has joined the room');
         createPeerConnection(senderId, true, onRemoteTrack);
         break;
@@ -120,11 +133,35 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
   room.on('members', members => {
     console.log('Members connected:', members);
+
     members.forEach(member => {
       if (member.id !== drone.clientId) {
+        membersList.push(member);
         createPeerConnection(member.id, true, onRemoteTrack);
       }
     });
+  });
+
+  room.on('member_join', member => {
+    membersList.push(member);
+    console.log('Member joined:', member.clientData.userInfo.nickname);
+    // createPeerConnection(member.id, true, onRemoteTrack);
+  });
+
+  room.on('member_leave', memberObj => {
+    const index = membersList .findIndex(member => member.id === memberObj.id);
+    console.log('Member left:', membersList[index].clientData.userInfo.nickname);
+    const videoEl = document.getElementById(memberObj.id);
+    if (videoEl) {
+      videoEl.remove();
+      if (index > -1)
+        showToast('Info', membersList[index].clientData.userInfo.nickname + ' has left the room!');
+    }
+    membersList.splice(index, 1);
+    // if (peerConnections[id]) {
+    //   peerConnections[id].close();
+    //   delete peerConnections[id];
+    // }
   });
 
   async function createPeerConnection(id, isInitiator, onRemoteTrack) {
@@ -134,9 +171,8 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     pc.onicecandidate = event => {
       if (event.candidate) {
         // console.log("New ICE Candidate:", event.candidate);
-        drone.publish({
-          room: ROOM_NAME,
-          message: { type: 'candidate', candidate: event.candidate, to: id }
+        drone.publish({ room: ROOM_NAME,
+          message: { type: 'candidate', candidate: event.candidate, to: id, userInfo }
         });
       }
       else {
@@ -182,14 +218,17 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     pc.ontrack = event => {
       console.log("Track received:", event.track.kind);
       onRemoteTrack(event.streams[0], id);
-      showToast('Info', 'User has joined the room!');
+      const index = membersList.findIndex(member => member.id === id);
+      if (index > -1)
+        showToast('Info', membersList[index].clientData.userInfo.nickname + ' has joined the room!');
+
     };
 
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
     if (isInitiator) {
       const offer = await createOfferWithPreferredCodec(pc);
-      drone.publish({ room: ROOM_NAME, message: { type: 'offer', offer, to: id } });
+      drone.publish({ room: ROOM_NAME, message: { type: 'offer', offer, to: id, userInfo } });
     }
 
     peerConnections[id] = pc;

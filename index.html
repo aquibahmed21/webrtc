@@ -47,6 +47,7 @@
   <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
   <link rel="stylesheet" href="./src/style.css">
   <link rel="stylesheet" href="./src/channel.css">
+  <link rel="stylesheet" href="./src/userInfoModal.css">
 </head>
 
 <body>
@@ -102,6 +103,37 @@
       <span>Add to Home Screen</span>
     </button>
   </div>
+  <!-- Modal Background -->
+  <div id="userInfoModal" class="modal">
+    <div class="modal-content">
+      <!-- Close Button (X) -->
+      <span class="close-btn" id="closeModal">×</span>
+
+      <div class="userInfo">
+        <h2>Get User Info</h2>
+        <label for="nickname">Nickname</label>
+        <input type="text" name="nickname" id="nickname" placeholder="Enter your nickname">
+
+        <label for="gender">Gender</label>
+        <select name="gender" id="gender">
+          <option value="">Select gender</option>
+          <option value="male">👨 Male</option>
+          <option value="female">👩 Female</option>
+        </select>
+
+        <label for="status">Status</label>
+        <input type="text" name="status" id="status" placeholder="Enter your status">
+
+        <label for="age">Age</label>
+        <input type="number" name="age" id="age" placeholder="Enter your age">
+
+        <div class="actions">
+          <button class="submit-btn" id="submit-btn">Submit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Step 1: Ask for Permission
     // if ('Notification' in window && 'serviceWorker' in navigator) {
