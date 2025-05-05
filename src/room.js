@@ -65,7 +65,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     switch (data.type) {
       case 'offer':
-        console.log('Received an offer from', senderId);
+        // console.log('Received an offer from', senderId);
         createPeerConnection(senderId, false, onRemoteTrack);
         peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.offer));
         peerConnections[senderId]
@@ -77,14 +77,14 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         break;
 
       case 'answer':
-        console.log('Received an answer from', senderId);
+        // console.log('Received an answer from', senderId);
         if (data.to === drone.clientId && peerConnections[senderId]) {
           peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.answer));
         }
         break;
 
       case 'candidate':
-        console.log('Received a candidate from', senderId);
+        // console.log('Received a candidate from', senderId);
         if (data.to === drone.clientId && peerConnections[senderId]) {
           peerConnections[senderId].addIceCandidate(new RTCIceCandidate(data.candidate));
         }
@@ -144,13 +144,13 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
   room.on('member_join', member => {
     membersList.push(member);
-    console.log('Member joined:', member.clientData.userInfo.nickname);
-    // createPeerConnection(member.id, true, onRemoteTrack);
+    console.log('Member joined:', member.clientData?.userInfo.nickname);
+    createPeerConnection(member.id, false, onRemoteTrack);
   });
 
   room.on('member_leave', memberObj => {
     const index = membersList .findIndex(member => member.id === memberObj.id);
-    console.log('Member left:', membersList[index].clientData.userInfo.nickname);
+    console.log('Member left:', membersList[index].clientData?.userInfo.nickname);
     const videoEl = document.getElementById(memberObj.id);
     if (videoEl) {
       videoEl.remove();
@@ -176,7 +176,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         });
       }
       else {
-        console.log("All ICE candidates have been gathered.");
+        // console.log("All ICE candidates have been gathered.");
       }
     };
 
@@ -216,7 +216,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     // Log when tracks are added
     pc.ontrack = event => {
-      console.log("Track received:", event.track.kind);
+      // console.log("Track received:", event.track.kind);
       onRemoteTrack(event.streams[0], id);
       const index = membersList.findIndex(member => member.id === id);
       if (index > -1)

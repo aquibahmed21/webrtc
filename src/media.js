@@ -332,7 +332,7 @@ export async function createOfferWithPreferredCodec(pc) {
   await pc.setLocalDescription({ type: offer.type, sdp: modifiedSdp });
 
   console.log("Preferred codec:", preferredCodec);
-  console.log("Modified SDP:", modifiedSdp);
+  // console.log("Modified SDP:", modifiedSdp);
   return offer;
 }
 

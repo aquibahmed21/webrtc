@@ -3,6 +3,7 @@ import { getLocalStream, createVideoElement, switchCamera } from './media.js';
 import { setupRoom, pcInfo, drone } from './room.js';
 import { showToast } from './toast.js';
 
+const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
 
@@ -121,7 +122,10 @@ document.querySelector("#controls").addEventListener('click', async event => {
 
 async function main() {
   localStream = await getLocalStream();
-  createVideoElement(localStream, 'localVideo', true);
+  createVideoElement( localStream, 'localVideo', true );
+
+  if (!isIos)
+    setupAudioOutputSelection();
 
   if (drone) {
     // Notify other peers you're joining
@@ -139,6 +143,7 @@ async function main() {
   });
 }
 
+if (!isIos)
 setupAudioOutputSelection();
 
 if (!isMobile)
