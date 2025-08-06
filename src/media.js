@@ -35,6 +35,7 @@ subscribeToPushNotification.addEventListener('click', async event => {
   const getVapidKey = await fetch(serverURL + "vapid").catch(err => console.log(err));
   if (!getVapidKey) return;
   const { publicKey } = await getVapidKey.json();
+  const registration = await navigator.serviceWorker.register('service-worker.js');
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(publicKey)
