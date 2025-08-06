@@ -56,8 +56,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener('push', event => {
+  const json = event.data.json ? event.data.json() : event.data.text();
   const options = {
-    body: event.data.text(),
+    title: event.data.json ? json.title : 'New Message',
+    body: event.data.json ? json.body : event.data.text(),
     icon: '/images/icon-192.png',
     badge: '/images/icon-192.png'
   };
