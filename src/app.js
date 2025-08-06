@@ -11,9 +11,9 @@ const muteVideo = document.querySelector('#muteVideo');
 const muteAudio = document.querySelector('#muteAudio');
 const userInfoModal = document.querySelector('#userInfoModal');
 
-if (Notification.permission === 'granted') {
-  document.querySelector('#push').setAttribute('disabled', 'true');
-}
+// if (Notification.permission === 'granted') {
+//   document.querySelector('#push').setAttribute('disabled', 'true');
+// }
 
 let userInfo = window.localStorage.getItem('userInfo');
 

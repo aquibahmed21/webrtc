@@ -32,7 +32,8 @@ subscribeToPushNotification.addEventListener('click', async event => {
     showToast('Error', 'Unable to subscribe to push notifications');
     return;
   }
-  const getVapidKey = await fetch(serverURL + "/vapid");
+  const getVapidKey = await fetch(serverURL + "vapid").catch(err => console.log(err));
+  if (!getVapidKey) return;
   const { vapidKey } = await getVapidKey.json();
   const subscription = await navigator.serviceWorker.ready;
   await subscription.pushManager.subscribe({
