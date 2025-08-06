@@ -11,18 +11,54 @@ const muteVideo = document.querySelector('#muteVideo');
 const muteAudio = document.querySelector('#muteAudio');
 const userInfoModal = document.querySelector('#userInfoModal');
 
-// if (Notification.permission === 'granted') {
-//   document.querySelector('#push').setAttribute('disabled', 'true');
-// }
+const serverURL = window.location.hostname === 'localhost' ? 'http://localhost:3000/' :
+                                                             'https://web-push-3zaz.onrender.com/';
+const subscribeToPushNotification = document.querySelector('#push');
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64); const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+subscribeToPushNotification.addEventListener('click', async event => {
+  subscribeToPushNotification.setAttribute('disabled', 'true');
+  const getVapidKey = await fetch(serverURL + "vapid").catch(err => console.log(err));
+  if (!getVapidKey) return;
+  const { publicKey } = await getVapidKey.json();
+  let path = "/webrtc/" + 'service-worker.js';
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    showToast('Error', 'Unable to subscribe to push notifications');
+    return;
+  }
+  const registration = await navigator.serviceWorker.register(path);
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey)
+  });
+  await fetch(serverURL + "subscribe", {
+    method: 'POST',
+    body: JSON.stringify(subscription),
+    headers: { 'Content-Type': 'application/json' }
+  });
+  subscribeToPushNotification.style.display = 'none';
+  showToast('Success', 'Push notifications subscribed successfully');
+});
+
+if (Notification.permission === 'granted')
+  subscribeToPushNotification.style.display = 'none';
 
 let userInfo = window.localStorage.getItem('userInfo');
 
 if (!userInfo)
   openModal();
-else
-{
+else {
   userInfo = JSON.parse(userInfo);
-  const {nickname,gender,status,age} = userInfo;
+  const { nickname, gender, status, age } = userInfo;
   // ! check if all info is available
   if (!nickname || !gender || !status || !age)
     openModal();
@@ -52,9 +88,8 @@ async function setupAudioOutputSelection() {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const audioOutputs = devices.filter(device => device.kind === 'audiooutput' || device.label.includes("headset"));
 
-    if (audioOutputs.length > 0)
-    {
-        audioOutputs.forEach(device => {
+    if (audioOutputs.length > 0) {
+      audioOutputs.forEach(device => {
         if (audioOutputSelect.querySelector(`option[value="${device.deviceId}"]`)) return;
         const option = document.createElement('option');
         option.value = device.deviceId;
@@ -126,7 +161,7 @@ document.querySelector("#controls").addEventListener('click', async event => {
 
 async function main() {
   localStream = await getLocalStream();
-  createVideoElement( localStream, 'localVideo', true, "You");
+  createVideoElement(localStream, 'localVideo', true, "You");
 
   if (!isIos)
     setupAudioOutputSelection();
@@ -148,7 +183,7 @@ async function main() {
 }
 
 if (!isIos)
-setupAudioOutputSelection();
+  setupAudioOutputSelection();
 
 if (!isMobile)
   document.querySelector('#switchCamera').style.display = 'none';
@@ -193,8 +228,7 @@ userInfoModal.addEventListener('click', event => {
 
   if (event.target === userInfoModal || event.target.id === 'closeModal')
     closeModal();
-  else if (event.target.id === 'submit-btn')
-  {
+  else if (event.target.id === 'submit-btn') {
     event.stopPropagation();
     const nickname = document.querySelector('#nickname').value;
     const gender = document.querySelector('#gender').value;

@@ -2,7 +2,6 @@ import { pcInfo, drone } from './room.js';
 import { showToast } from './toast.js';
 
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
-const serverURL = "https://web-push-3zaz.onrender.com/";
 
 let localwidth = 0;
 let localheight = 0;
@@ -15,40 +14,6 @@ const framerate = document.querySelector('#framerate');
 const screenShare = document.querySelector('#shareScreen');
 const muteVideo = document.querySelector('#muteVideo');
 const switchCamerabutton = document.querySelector('#switchCamera');
-const subscribeToPushNotification = document.querySelector('#push');
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64); const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
-}
-
-subscribeToPushNotification.addEventListener('click', async event => {
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    showToast('Error', 'Unable to subscribe to push notifications');
-    return;
-  }
-  const getVapidKey = await fetch(serverURL + "vapid").catch(err => console.log(err));
-  if (!getVapidKey) return;
-  const { publicKey } = await getVapidKey.json();
-  let path = "/webrtc/" + 'service-worker.js';
-  const registration = await navigator.serviceWorker.register(path);
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey)
-  });
-  await fetch(serverURL + "subscribe", {
-    method: 'POST',
-    body: JSON.stringify(subscription),
-    headers: { 'Content-Type': 'application/json' }
-  });
-  subscribeToPushNotification.setAttribute('disabled', 'true');
-  showToast('Success', 'Push notifications subscribed successfully');
-});
 
 
 quality.addEventListener('change', async event => {
