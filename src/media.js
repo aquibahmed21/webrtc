@@ -2,6 +2,7 @@ import { pcInfo, drone } from './room.js';
 import { showToast } from './toast.js';
 
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
+const serverURL = "https://web-push-3zaz.onrender.com/"
 
 let localwidth = 0;
 let localheight = 0;
@@ -14,6 +15,38 @@ const framerate = document.querySelector('#framerate');
 const screenShare = document.querySelector('#shareScreen');
 const muteVideo = document.querySelector('#muteVideo');
 const switchCamerabutton = document.querySelector('#switchCamera');
+const subscribeToPushNotification = document.querySelector('#push');
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64); const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+subscribeToPushNotification.addEventListener('click', async event => {
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    showToast('Error', 'Unable to subscribe to push notifications');
+    return;
+  }
+  const getVapidKey = await fetch(serverURL + "/vapid");
+  const { vapidKey } = await getVapidKey.json();
+  const subscription = await navigator.serviceWorker.ready;
+  await subscription.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidKey)
+  });
+  await fetch(serverURL + "/subscribe", {
+    method: 'POST',
+    body: JSON.stringify(subscription),
+    headers: { 'Content-Type': 'application/json' }
+  });
+  subscribeToPushNotification.setAttribute('disabled', 'true');
+  showToast('Success', 'Push notifications subscribed successfully');
+})
 
 
 quality.addEventListener('change', async event => {
@@ -156,8 +189,24 @@ export async function getLocalStream() {
   return localstream;
 }
 
-export function createVideoElement(stream, id, isLocal = false) {
-  const video = document.createElement('video');
+export function createVideoElement(stream, id, isLocal = false, name = '') {
+  const div = document.createElement('div');
+  div.className = "participant";
+  div.setAttribute("data-id", id);
+  div.innerHTML = `<video autoplay playsinline></video>
+    <div class="overlay">
+      <span class="name">${name}</span>
+      <div class="controls">
+        <button class="muteAudio">🔇</button>
+        <button class="muteVideo">🎥</button>
+        <button class="switchCamera">🔄</button>
+        <button class="hangup">📞</button>
+      </div>
+    </div>
+  </div>`
+
+
+  const video = div.querySelector('video');
   video.srcObject = stream;
   video.id = id;
   video.autoplay = true;
@@ -167,12 +216,12 @@ export function createVideoElement(stream, id, isLocal = false) {
 
   if (isLocal) {
     video.muted = true;
-    document.getElementsByClassName("Channel")[0].appendChild(video);
+    document.getElementsByClassName("Channel")[0].appendChild(div);
     video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode || 'user');
   }
   else {
     video.setAttribute("isRemote", "true");
-    document.getElementsByClassName("Channel")[0].prepend(video);
+    document.getElementsByClassName("Channel")[0].prepend(div);
     handleIncomingStream(stream, video);
   }
 }
@@ -252,7 +301,8 @@ async function updateLocalVideoStream() {
   if (videoSender) {
     const oldTrack = videoSender.track;
 
-    try {
+    try
+    {
       // 1. Stop the existing video track
       oldTrack.stop();
 

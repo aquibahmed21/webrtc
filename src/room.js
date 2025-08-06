@@ -217,7 +217,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     // Log when tracks are added
     pc.ontrack = event => {
       // console.log("Track received:", event.track.kind);
-      onRemoteTrack(event.streams[0], id);
+      onRemoteTrack(event.streams[0], id, membersList.find(member => member.id === id).clientData?.userInfo?.nickname);
       const index = membersList.findIndex(member => member.id === id);
       if (index > -1)
         showToast('Info', membersList[index].clientData.userInfo.nickname + ' has joined the room!');

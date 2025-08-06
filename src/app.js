@@ -11,6 +11,10 @@ const muteVideo = document.querySelector('#muteVideo');
 const muteAudio = document.querySelector('#muteAudio');
 const userInfoModal = document.querySelector('#userInfoModal');
 
+if (Notification.permission === 'granted') {
+  document.querySelector('#push').setAttribute('disabled', 'true');
+}
+
 let userInfo = window.localStorage.getItem('userInfo');
 
 if (!userInfo)
@@ -122,7 +126,7 @@ document.querySelector("#controls").addEventListener('click', async event => {
 
 async function main() {
   localStream = await getLocalStream();
-  createVideoElement( localStream, 'localVideo', true );
+  createVideoElement( localStream, 'localVideo', true, "You");
 
   if (!isIos)
     setupAudioOutputSelection();
@@ -136,9 +140,9 @@ async function main() {
     return;
   }
 
-  setupRoom(localStream, (remoteStream, id) => {
+  setupRoom(localStream, (remoteStream, id, name) => {
     if (!document.getElementById(id)) {
-      createVideoElement(remoteStream, id);
+      createVideoElement(remoteStream, id, false, name);
     }
   });
 }
