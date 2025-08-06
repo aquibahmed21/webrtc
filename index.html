@@ -45,7 +45,7 @@
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
   <link rel="icon" type="image/x-icon" href="/webrtc/images/favicon.ico">
-  <script type="module" crossorigin src="/webrtc/assets/index-Wpx1DlfR.js"></script>
+  <script type="module" crossorigin src="/webrtc/assets/index-BRwUx06n.js"></script>
   <link rel="stylesheet" crossorigin href="/webrtc/assets/index-CndHZIgU.css">
 </head>
 
@@ -147,9 +147,10 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
+        let path = '/webrtc/service-worker.js';
+        navigator.serviceWorker.register(path)
           .then(registration => {
-            // console.log('ServiceWorker registered:', registration);
+            console.log('ServiceWorker registered:', registration);
           })
           .catch(error => {
             console.log('ServiceWorker registration failed:', error);
