@@ -41,7 +41,7 @@ subscribeToPushNotification.addEventListener('click', async event => {
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(publicKey)
   });
-  await fetch(serverURL + "/subscribe", {
+  await fetch(serverURL + "subscribe", {
     method: 'POST',
     body: JSON.stringify(subscription),
     headers: { 'Content-Type': 'application/json' }
