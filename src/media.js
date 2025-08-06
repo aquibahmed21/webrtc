@@ -2,7 +2,7 @@ import { pcInfo, drone } from './room.js';
 import { showToast } from './toast.js';
 
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
-const serverURL = "https://web-push-3zaz.onrender.com/"
+const serverURL = "https://web-push-3zaz.onrender.com/";
 
 let localwidth = 0;
 let localheight = 0;
@@ -34,11 +34,10 @@ subscribeToPushNotification.addEventListener('click', async event => {
   }
   const getVapidKey = await fetch(serverURL + "vapid").catch(err => console.log(err));
   if (!getVapidKey) return;
-  const { vapidKey } = await getVapidKey.json();
-  const subscription = await navigator.serviceWorker.ready;
-  await subscription.pushManager.subscribe({
+  const { publicKey } = await getVapidKey.json();
+  const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidKey)
+    applicationServerKey: urlBase64ToUint8Array(publicKey)
   });
   await fetch(serverURL + "/subscribe", {
     method: 'POST',
@@ -47,7 +46,7 @@ subscribeToPushNotification.addEventListener('click', async event => {
   });
   subscribeToPushNotification.setAttribute('disabled', 'true');
   showToast('Success', 'Push notifications subscribed successfully');
-})
+});
 
 
 quality.addEventListener('change', async event => {
@@ -204,7 +203,7 @@ export function createVideoElement(stream, id, isLocal = false, name = '') {
         <button class="hangup">📞</button>
       </div>
     </div>
-  </div>`
+  </div>`;
 
 
   const video = div.querySelector('video');
@@ -302,8 +301,7 @@ async function updateLocalVideoStream() {
   if (videoSender) {
     const oldTrack = videoSender.track;
 
-    try
-    {
+    try {
       // 1. Stop the existing video track
       oldTrack.stop();
 
