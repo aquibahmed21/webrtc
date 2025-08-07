@@ -18,8 +18,8 @@ self.addEventListener('push', event => {
   const options = {
     title: event.data.json ? json.title : 'New Message',
     body: event.data.json ? json.body : event.data.text(),
-    icon: '/images/icon-192.png',
-    badge: '/images/icon-192.png'
+    icon: event.data.json ? json.icon :  '/images/icon-192.png',
+    badge: event.data.json ? json.badge : '/images/icon-192.png'
   };
 
   event.waitUntil(
