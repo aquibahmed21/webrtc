@@ -1,9 +1,11 @@
 // app.js
+import { serviceWorkerMain } from './main.js';
 import { getLocalStream, createVideoElement, switchCamera } from './media.js';
 import { setupRoom, pcInfo, drone } from './room.js';
 import { showToast } from './toast.js';
+import { urlBase64ToUint8Array } from './util.js';
 
-const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
+export const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
 
@@ -12,42 +14,55 @@ const muteAudio = document.querySelector('#muteAudio');
 const userInfoModal = document.querySelector('#userInfoModal');
 
 const serverURL = window.location.hostname === 'localhost' ? 'http://localhost:3000/' :
-                                                             'https://web-push-3zaz.onrender.com/';
+  'https://web-push-3zaz.onrender.com/';
 const subscribeToPushNotification = document.querySelector('#push');
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64); const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
-}
+
 
 subscribeToPushNotification.addEventListener('click', async event => {
-  subscribeToPushNotification.setAttribute('disabled', 'true');
+  // subscribeToPushNotification.setAttribute('disabled', 'true');
   const getVapidKey = await fetch(serverURL + "vapid").catch(err => console.log(err));
   if (!getVapidKey) return;
   const { publicKey } = await getVapidKey.json();
-  let path = "/webrtc/" + 'service-worker.js';
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
     showToast('Error', 'Unable to subscribe to push notifications');
     return;
   }
-  const registration = await navigator.serviceWorker.register(path);
-  const subscription = await registration.pushManager.subscribe({
+
+  const subscription = await serviceWorkerMain.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(publicKey)
   });
+
+  const subscribejson = {
+    "endpoint": subscription.toJSON().endpoint,
+    "expirationTime": subscription.toJSON().expirationTime,
+    "keys": {
+      "p256dh": subscription.toJSON().keys.p256dh,
+      "auth": subscription.toJSON().keys.auth,
+      "id": JSON.parse(window.localStorage.getItem('userInfo')).id
+    }
+  };
+
   await fetch(serverURL + "subscribe", {
     method: 'POST',
-    body: JSON.stringify(subscription),
-    headers: { 'Content-Type': 'application/json' }
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(subscribejson)
+  }).then(res => {
+    if (res.status === 200)
+      showToast('Success', 'Push notifications subscribed successfully');
+    else
+      showToast('Error', 'Unable to subscribe to push notifications');
+  }).catch(err => {
+    console.log(err);
+    showToast('Error', 'Unable to subscribe to push notifications');
   });
-  subscribeToPushNotification.style.display = 'none';
-  showToast('Success', 'Push notifications subscribed successfully');
-});
+  // subscribeToPushNotification.style.display = 'none';
+  // showToast('Success', 'Push notifications subscribed successfully');
+}, false);
 
 if (Notification.permission === 'granted')
   subscribeToPushNotification.style.display = 'none';

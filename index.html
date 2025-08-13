@@ -45,9 +45,9 @@
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
   <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
-  <link rel="stylesheet" href="./src/style.css">
-  <link rel="stylesheet" href="./src/channel.css">
-  <link rel="stylesheet" href="./src/userInfoModal.css">
+  <link rel="stylesheet" href="./src/styles/style.css">
+  <link rel="stylesheet" href="./src/styles/channel.css">
+  <link rel="stylesheet" href="./src/styles/userInfoModal.css">
 </head>
 
 <body>
@@ -135,43 +135,8 @@
       </div>
     </div>
   </div>
-
-  <script>
-    // Step 1: Ask for Permission
-    // if ('Notification' in window && 'serviceWorker' in navigator) {
-    //   Notification.requestPermission().then(permission => {
-    //     if (permission === 'granted') {
-    //       console.log('Push notifications granted');
-    //     }
-    //   });
-    // }
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        let path = '/webrtc/service-worker.js';
-        navigator.serviceWorker.register(path)
-          .then(registration => {
-            console.log('ServiceWorker registered:', registration);
-          })
-          .catch(error => {
-            console.log('ServiceWorker registration failed:', error);
-          });
-      });
-    }
-
-    // window.addEventListener("beforeunload", function (event) {
-    //   // Standard for most browsers
-    //   const message = "Do you want to exit?";
-
-    //   // Some browsers require setting the returnValue property
-    //   event.returnValue = message; // Chrome, Firefox, etc.
-
-    //   // Older browsers might use the returnValue property to show a custom message
-    //   return message;  // For older browsers like Internet Explorer
-    // });
-
-  </script>
-  <script type="module" src="/src/app.js"></script>
+  <script type="module" src="/src/javascript/main.js"></script>
+  <script type="module" src="/src/javascript/app.js"></script>
 </body>
 
 </html>

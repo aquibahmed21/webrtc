@@ -354,9 +354,8 @@ export async function createOfferWithPreferredCodec(pc) {
 
 function checkScreenSharingSupport() {
   // iOS check
+  // const isAndroid = /android/i.test(navigator.userAgent);
   const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
-  const isAndroid = /android/i.test(navigator.userAgent);
-
 
   if (isIos) {
     console.log("Screen sharing is not supported on iOS devices via web apps. Please use a native app or WebView.");
