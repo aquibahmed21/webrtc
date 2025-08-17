@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Account Portal</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #1e1f29, #2a2c39);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        color: white;
+    }
+    .container {
+        background: #2f3242;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.4);
+        width: 100%;
+        max-width: 400px;
+    }
+    .logo {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    .logo img {
+        width: 80px;
+    }
+    .tagline {
+        text-align: center;
+        font-size: 14px;
+        margin-bottom: 20px;
+        color: #ccc;
+    }
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    input, select, button {
+        width: 100%;
+        padding: 10px;
+        margin: 8px 0;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+    input, select {
+        background: #3d4050;
+        color: white;
+    }
+    button {
+        background: #4e73df;
+        color: white;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    button:hover {
+        background: #3b5cb8;
+    }
+    .link {
+        text-align: center;
+        font-size: 13px;
+        margin-top: 10px;
+        color: #4e73df;
+        cursor: pointer;
+    }
+    .hidden {
+        display: none;
+    }
+    .avatar-selection {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+    }
+    .avatar-selection img {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: border 0.3s;
+    }
+    .avatar-selection img.selected {
+        border: 2px solid #4e73df;
+    }
+    .captcha-box {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #3d4050;
+        padding: 10px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 16px;
+        margin: 8px 0;
+        letter-spacing: 2px;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo">
+        <img src="https://via.placeholder.com/80" alt="Company Logo">
+    </div>
+    <div class="tagline">Empowering Your Digital Identity</div>
+
+    <!-- Sign In -->
+    <div id="signinForm">
+        <h2>Sign In</h2>
+        <input type="text" placeholder="Username" id="signinUsername">
+        <input type="email" placeholder="Email">
+        <button>Sign In</button>
+        <div class="link" onclick="showForm('signupForm')">Create Account</div>
+        <div class="link" onclick="showForm('recoverForm')">Forgot Username?</div>
+    </div>
+
+    <!-- Sign Up -->
+    <div id="signupForm" class="hidden">
+        <h2>Sign Up</h2>
+        <input type="text" placeholder="Full Name" id="fullName" oninput="autoSuggestUsername()">
+        <input type="text" placeholder="Status">
+        <input type="text" placeholder="Username" id="username">
+        <input type="number" placeholder="Age">
+        <select>
+            <option value="">Select Gender</option>
+            <option>Male</option>
+            <option>Female</option>
+            <option>Other</option>
+        </select>
+        <label>Select Avatar</label>
+        <div class="avatar-selection">
+            <img src="https://via.placeholder.com/50/ff7f7f" onclick="selectAvatar(this)">
+            <img src="https://via.placeholder.com/50/7fbfff" onclick="selectAvatar(this)">
+            <img src="https://via.placeholder.com/50/7fff7f" onclick="selectAvatar(this)">
+        </div>
+        <input type="email" placeholder="Email">
+        <button>Sign Up</button>
+        <div class="link" onclick="showForm('signinForm')">Already have an account?</div>
+    </div>
+
+    <!-- Recover Username -->
+    <div id="recoverForm" class="hidden">
+        <h2>Recover Username</h2>
+        <input type="email" placeholder="Enter your registered email">
+        <div class="captcha-box" id="captchaCode"></div>
+        <input type="text" id="captchaInput" placeholder="Enter CAPTCHA">
+        <button onclick="validateCaptcha()">Recover Username</button>
+        <div class="link" onclick="showForm('signinForm')">Back to Sign In</div>
+    </div>
+</div>
+
+<script>
+    function showForm(formId) {
+        document.querySelectorAll('.container > div').forEach(div => {
+            if (div.id) div.classList.add('hidden');
+        });
+        document.getElementById(formId).classList.remove('hidden');
+        if (formId === 'recoverForm') generateCaptcha();
+    }
+
+    function autoSuggestUsername() {
+        const name = document.getElementById('fullName').value.trim().toLowerCase();
+        document.getElementById('username').value = name.replace(/\s+/g, '_');
+    }
+
+    function selectAvatar(img) {
+        document.querySelectorAll('.avatar-selection img').forEach(el => el.classList.remove('selected'));
+        img.classList.add('selected');
+    }
+
+    function generateCaptcha() {
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        document.getElementById('captchaCode').innerText = code;
+        document.getElementById('captchaCode').dataset.code = code;
+    }
+
+    function validateCaptcha() {
+        const input = document.getElementById('captchaInput').value.trim().toUpperCase();
+        const correct = document.getElementById('captchaCode').dataset.code;
+        if (input === correct) {
+            alert("Your username recovery request has been submitted!");
+            showForm('signinForm');
+        } else {
+            alert("Invalid CAPTCHA. Please try again.");
+            generateCaptcha();
+            document.getElementById('captchaInput').value = '';
+        }
+    }
+
+    // Default load: Sign In
+    showForm('signinForm');
+</script>
+
+</body>
+</html>
+

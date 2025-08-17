@@ -19,14 +19,55 @@ const subscribeToPushNotification = document.querySelector('#push');
 
 
 
+function SendPushToAll(title, body) {
+  const initiator = JSON.parse(window.localStorage.getItem('userInfo'))?.id || 0;
+  fetch(serverURL + 'notifyAll', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initiator, title, body })
+  });
+}
+
+async function IsSubscribedToPush () {
+  const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
+  if (!userInfo) return false;
+
+  if (Notification.permission === 'granted')
+  {
+    const subscribe = localStorage.getItem('subscription')
+    if (!subscribe)
+    {
+      const subscription = await serviceWorkerMain.pushManager.getSubscription();
+      if (subscription)
+      {
+        await subscription.unsubscribe();
+        showToast('Info', 'Notification unsubscribed locally!, Please resubscribe.');
+      }
+      return false
+    }
+
+
+    const res = await fetch(serverURL + 'isPushSubscribed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: subscribe
+    });
+    const json = await res.json();
+    return json.isSubscribed;
+  }
+}
+
+
 subscribeToPushNotification.addEventListener('click', async event => {
   // subscribeToPushNotification.setAttribute('disabled', 'true');
   const getVapidKey = await fetch(serverURL + "vapid").catch(err => console.log(err));
   if (!getVapidKey) return;
   const { publicKey } = await getVapidKey.json();
+  subscribeToPushNotification.setAttribute('disabled', 'true');
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
     showToast('Error', 'Unable to subscribe to push notifications');
+    subscribeToPushNotification.setAttribute('disabled', 'false');
     return;
   }
 
@@ -45,6 +86,8 @@ subscribeToPushNotification.addEventListener('click', async event => {
     }
   };
 
+  localStorage.setItem('subscription', JSON.stringify(subscription));
+
   await fetch(serverURL + "subscribe", {
     method: 'POST',
     headers: {
@@ -60,12 +103,15 @@ subscribeToPushNotification.addEventListener('click', async event => {
     console.log(err);
     showToast('Error', 'Unable to subscribe to push notifications');
   });
-  // subscribeToPushNotification.style.display = 'none';
-  // showToast('Success', 'Push notifications subscribed successfully');
+  subscribeToPushNotification.style.display = 'none';
+  showToast('Success', 'Push notifications subscribed successfully');
 }, false);
 
-if (Notification.permission === 'granted')
-  subscribeToPushNotification.style.display = 'none';
+setTimeout(async () => {
+  const isSubscribed = await IsSubscribedToPush();
+  if (isSubscribed)
+    subscribeToPushNotification.style.display = 'none';
+}, 1000);
 
 let userInfo = window.localStorage.getItem('userInfo');
 
@@ -175,6 +221,8 @@ document.querySelector("#controls").addEventListener('click', async event => {
 });
 
 async function main() {
+  const nickname = JSON.parse(window.localStorage.getItem('userInfo'))?.nickname || "No name";
+  SendPushToAll("Video Conferencing with KiteCite", "Started by " + nickname);
   localStream = await getLocalStream();
   createVideoElement(localStream, 'localVideo', true, "You");
 
