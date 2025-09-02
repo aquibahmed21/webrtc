@@ -109,8 +109,7 @@ subscribeToPushNotification.addEventListener('click', async event => {
 
 setTimeout(async () => {
   const isSubscribed = await IsSubscribedToPush();
-  if (isSubscribed)
-    subscribeToPushNotification.style.display = 'none';
+  subscribeToPushNotification.style.display = isSubscribed? 'none' : "";
 }, 1000);
 
 let userInfo = window.localStorage.getItem('userInfo');
@@ -121,7 +120,7 @@ else {
   userInfo = JSON.parse(userInfo);
   const { nickname, gender, status, age } = userInfo;
   // ! check if all info is available
-  if (!nickname || !gender || !status || !age)
+  if (!nickname || !gender)
     openModal();
 }
 
@@ -294,10 +293,10 @@ userInfoModal.addEventListener('click', event => {
   else if (event.target.id === 'submit-btn') {
     event.stopPropagation();
     const nickname = document.querySelector('#nickname').value;
-    const gender = document.querySelector('#gender').value;
+    const gender = document.querySelector('.radio-group').querySelector("input:checked").value;
     const status = document.querySelector('#status').value;
     const age = document.querySelector('#age').value;
-    if (!nickname || !gender || !status || !age) {
+    if (!nickname || !gender) {
       showToast('Error', 'Please fill all the fields!');
       return;
     }
@@ -314,7 +313,7 @@ function openModal() {
   const h4 = document.querySelector('h4');
   if (userInfo) {
     document.querySelector('#nickname').value = JSON.parse(userInfo).nickname;
-    document.querySelector('#gender').value = JSON.parse(userInfo).gender;
+    document.querySelector('.radio-group').querySelector("input[value=" + JSON.parse(userInfo).gender + "]").checked = true;
     document.querySelector('#status').value = JSON.parse(userInfo).status;
     document.querySelector('#age').value = JSON.parse(userInfo).age;
     h4.innerHTML = "Video Conferencing with KiteCite";
@@ -332,7 +331,7 @@ function closeModal() {
   userInfoModal.classList.remove("show-modal");
   if (userInfo) {
     document.querySelector('#nickname').value = "";
-    document.querySelector('#gender').value = "";
+    document.querySelector('.radio-group').querySelector("input[value='male']").checked = true;
     document.querySelector('#status').value = "";
     document.querySelector('#age').value = "";
     h4.innerHTML = "Video Conferencing with KiteCite";

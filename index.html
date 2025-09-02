@@ -53,7 +53,7 @@
 <body>
   <h4>Video Conferencing with KiteCite</h4>
   <div id="app">
-    <button id="push">🔔 Notification</button>
+    <button id="push" style="display: none;">🔔 Notification</button>
      <!-- Toast Container -->
     <div id="toastContainer"></div>
     <div class="Channel"></div>
@@ -67,21 +67,30 @@
 
       <div class="sub-control">
         <label for="quality">Select quality:</label>
-        <select id="quality">
-          <option value="160x120">160x120</option>
-          <option value="320x240">320x240</option>
-          <option value="640x480">640x480</option>
-          <option value="1280x720">1280x720</option>
-          <option value="1920x1080">1920x1080</option>
-        </select>
+        <div class="radio-group" id="quality">
+          <input type="radio" name="quality" id="160x120" value="160x120" checked>
+          <label for="160x120">160x120</label>
+          <input type="radio" name="quality" id="320x240" value="320x240">
+          <label for="320x240">320x240</label>
+          <input type="radio" name="quality" id="640x480" value="640x480">
+          <label for="640x480">640x480</label>
+          <input type="radio" name="quality" id="1280x720" value="1280x720">
+          <label for="1280x720">1280x720</label>
+          <input type="radio" name="quality" id="1920x1080" value="1920x1080">
+          <label for="1920x1080">1920x1080</label>
+        </div>
 
         <label for="framerate">Select framerate:</label>
-        <select id="framerate">
-          <option value="10">10</option>
-          <option value="20">20</option>
-          <option value="30">30</option>
-          <option value="60">60</option>
-        </select>
+        <div class="radio-group" id="framerate">
+          <input type="radio" name="framerate" id="10" value="10" checked>
+          <label for="10">10</label>
+          <input type="radio" name="framerate" id="20" value="20">
+          <label for="20">20</label>
+          <input type="radio" name="framerate" id="30" value="30">
+          <label for="30">30</label>
+          <input type="radio" name="framerate" id="60" value="60">
+          <label for="60">60</label>
+        </div>
         <br>
         <div>
           <label for="audioOutputSelect">Select audio output device:</label>
@@ -116,12 +125,11 @@
         <label for="nickname">Nickname</label>
         <input type="text" name="nickname" id="nickname" placeholder="Enter your nickname">
 
-        <label for="gender">Gender</label>
-        <select name="gender" id="gender">
-          <option value="">Select gender</option>
-          <option value="male">👨 Male</option>
-          <option value="female">👩 Female</option>
-        </select>
+        <label>Gender</label>
+        <div class="radio-group">
+          <input type="radio" name="gender" id="gender-male" value="male" checked><label for="gender-male">👨 Male</label>
+          <input type="radio" name="gender" id="gender-female" value="female"><label for="gender-female">👩 Female</label>
+        </div>
 
         <label for="status">Status</label>
         <input type="text" name="status" id="status" placeholder="Enter your status">

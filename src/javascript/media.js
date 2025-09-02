@@ -16,17 +16,18 @@ const muteVideo = document.querySelector('#muteVideo');
 const switchCamerabutton = document.querySelector('#switchCamera');
 
 
-quality.addEventListener('change', async event => {
+quality.addEventListener('click', async event => {
   if (!localstream) return;
-  const [width, height] = event.target.value.split('x').map(Number);
+  const selectedOption = quality.querySelector("input:checked").value;
+  const [width, height] = selectedOption.split('x').map(Number);
   if (!await updateStream(width, height, localframeRate)) return;
 });
 
-framerate.addEventListener('change', async event => {
+framerate.addEventListener('click', async event => {
   if (!localstream) return;
-
-  const framerate = Number(event.target.value);
-  if (!await updateStream(localwidth, localheight, framerate)) return;
+  const selectedOption = framerate.querySelector("input:checked").value;
+  const frameRateValue = Number(selectedOption);
+  if (!await updateStream(localwidth, localheight, frameRateValue)) return;
 });
 
 screenShare.addEventListener('click', async event => {
@@ -85,8 +86,10 @@ screenShare.addEventListener('click', async event => {
 async function getMediaStream(width, height, frameRate, newFacing) {
 
   if (localstream) {
-    localstream.getVideoTracks()[0].stop();
-    localstream.removeTrack(localstream.getVideoTracks()[0]);
+    localstream.getVideoTracks().forEach(e => {
+      localstream.removeTrack(e);
+      e.stop();
+    });
   }
   try {
     const constraints = {
@@ -150,9 +153,11 @@ export function switchCamera() {
 
 // media.js
 export async function getLocalStream() {
-  const [width, height] = quality.value.split('x').map(Number);
-  const frameRate = Number(framerate.value);
-  await updateStream(width, height, frameRate);
+  const selectedOption = quality.querySelector("input:checked").value;
+  const [width, height] = selectedOption.split('x').map(Number);
+  const framerateInput = framerate.querySelector("input:checked");
+  const frameRateValue = Number(framerateInput.value);
+  await updateStream(width, height, frameRateValue);
   return localstream;
 }
 
