@@ -219,6 +219,14 @@ document.querySelector("#controls").addEventListener('click', async event => {
   }
 });
 
+document.querySelector(".Channel").addEventListener('click', event => {
+  if (event.target.tagName !== 'VIDEO') return;
+  const mainVideo = document.getElementById('localMainVideo');
+  mainVideo.srcObject = event.target.srcObject;
+
+    mainVideo.style.transform = (event.target.id === 'localVideo')? "scale(-1, 1)" : "";
+});
+
 async function main() {
   const nickname = JSON.parse(window.localStorage.getItem('userInfo'))?.nickname || "No name";
   SendPushToAll("Video Conferencing with KiteCite", "Started by " + nickname);

@@ -17,6 +17,7 @@ const switchCamerabutton = document.querySelector('#switchCamera');
 
 
 quality.addEventListener('click', async event => {
+  if (event.target.tagName !== 'INPUT') return;
   if (!localstream) return;
   const selectedOption = quality.querySelector("input:checked").value;
   const [width, height] = selectedOption.split('x').map(Number);
@@ -24,6 +25,7 @@ quality.addEventListener('click', async event => {
 });
 
 framerate.addEventListener('click', async event => {
+  if (event.target.tagName !== 'INPUT') return;
   if (!localstream) return;
   const selectedOption = framerate.querySelector("input:checked").value;
   const frameRateValue = Number(selectedOption);
