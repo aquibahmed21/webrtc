@@ -224,7 +224,8 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     };
 
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    if (localStream)
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
     if (isInitiator) {
       const offer = await createOfferWithPreferredCodec(pc);
