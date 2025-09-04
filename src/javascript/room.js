@@ -97,7 +97,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         const videoEl = document.getElementById(senderId);
         if (videoEl)
         {
-          videoEl.remove();
+          videoEl.parentElement.remove();
           if (index > -1)
             showToast('Info', membersList[index].clientData.userInfo.nickname + ' has left the room!');
         }
@@ -153,7 +153,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     console.log('Member left:', membersList[index].clientData?.userInfo.nickname);
     const videoEl = document.getElementById(memberObj.id);
     if (videoEl) {
-      videoEl.remove();
+      videoEl.parentElement.remove();
       if (index > -1)
         showToast('Info', membersList[index].clientData.userInfo.nickname + ' has left the room!');
     }
