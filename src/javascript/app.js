@@ -189,6 +189,7 @@ document.querySelector("#controls").addEventListener('click', async event => {
       // Mute the local video and audio tracks before stopping
       muteVideo.textContent = "🎥 Mute Video";
       muteAudio.textContent = "🔇 Mute Audio";
+      document.querySelector("#localMainVideo").classList.remove('active');
       if (localStream) {
         localStream.getTracks().forEach(track => {
           track.enabled = false; // Mute the track
@@ -223,8 +224,12 @@ document.querySelector(".Channel").addEventListener('click', event => {
   if (event.target.tagName !== 'VIDEO') return;
   const mainVideo = document.getElementById('localMainVideo');
   mainVideo.srcObject = event.target.srcObject;
+  mainVideo.classList.add('active');
+  mainVideo.style.transform = (event.target.id === 'localVideo')? "scale(-1, 1)" : "";
+});
 
-    mainVideo.style.transform = (event.target.id === 'localVideo')? "scale(-1, 1)" : "";
+document.querySelector("#localMainVideo").addEventListener("dblclick", event => {
+  event.target.requestFullscreen();
 });
 
 async function main() {

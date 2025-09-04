@@ -192,6 +192,7 @@ export function createVideoElement(stream, id, isLocal = false, name = '') {
     video.muted = true;
     document.getElementsByClassName("Channel")[0].appendChild(div);
     video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode || 'user');
+    video.click();
   }
   else {
     video.setAttribute("isRemote", "true");
