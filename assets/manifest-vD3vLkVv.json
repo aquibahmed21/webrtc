@@ -1,0 +1,131 @@
+{
+  "name": "WebRTC Video Conference",
+  "short_name": "WebRTC Call",
+  "description": "A modern, feature-rich video conferencing application built with WebRTC technology. Provides real-time video, audio, and text communication with advanced features like voice activity detection, screen sharing, and cross-platform compatibility.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1e90ff",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["communication", "productivity", "social"],
+  "icons": [
+    {
+      "src": "images/android-launchericon-48-48.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/android-launchericon-72-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/android-launchericon-96-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/android-launchericon-144-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "images/android-launchericon-192-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "images/android-launchericon-512-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "images/splash-screen.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "WebRTC Conference Main Interface"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start New Call",
+      "short_name": "New Call",
+      "description": "Start a new video conference",
+      "url": "/?action=new-call",
+      "icons": [
+        {
+          "src": "images/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Join Call",
+      "short_name": "Join",
+      "description": "Join an existing video conference",
+      "url": "/?action=join-call",
+      "icons": [
+        {
+          "src": "images/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "webrtc",
+      "url": "/?room=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "text/plain": [".txt"],
+        "application/json": [".json"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
