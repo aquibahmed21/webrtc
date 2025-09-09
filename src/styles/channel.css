@@ -13,8 +13,6 @@ video#localVideo[screenshare="true"] {
   width: 100% !important;
 }
 
-/* Style for all video elements within the Channel (including participants) */
-
 /* Animation for when a participant joins */
 .Channel video.participant-enter {
   opacity: 0;
@@ -40,32 +38,3 @@ video#localVideo[screenshare="true"] {
   opacity: 0;
   transform: scale(0.8);
 }
-
-/* Responsive adjustments */
-@media (min-width: 600px) {
-
-}
-
-@media (min-width: 900px) {
-}
-
-/* More participants - adjust as needed */
-.Channel.participants-2 #localVideo {
-}
-
-.Channel.participants-2 video:not(#localVideo) {
-}
-
-.Channel.participants-3 #localVideo {
-}
-
-.Channel.participants-3 video:not(#localVideo) {
-}
-
-.Channel.participants-4 #localVideo {
-}
-
-.Channel.participants-4 video:not(#localVideo) {
-}
-
-/* Add more classes for higher participant counts as needed */

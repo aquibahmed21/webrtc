@@ -4,47 +4,49 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KiteCite Call</title>
+  <title>WebRTC Video Conference</title>
   <meta name="format-detection" content="telephone=no">
   <meta name="description"
-    content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
+    content="A modern, feature-rich video conferencing application built with WebRTC technology. Provides real-time video, audio, and text communication with advanced features like voice activity detection, screen sharing, and cross-platform compatibility.">
   <meta name="og:description"
-    content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
-  <meta name="og:title" content="KiteCite Call">
-  <meta name="og:image" content="/images/kitecite.svg">
+    content="A modern, feature-rich video conferencing application built with WebRTC technology. Provides real-time video, audio, and text communication with advanced features like voice activity detection, screen sharing, and cross-platform compatibility.">
+  <meta name="og:title" content="WebRTC Video Conference">
+  <meta name="og:image" content="/images/icon-512.png">
   <meta name="og:url" content="https://aquibahmed21.github.io/webrtc">
   <meta name="og:type" content="website">
   <meta name="og:locale" content="en_US">
   <meta name="keywords"
-    content="WebRTC, video conferencing, distributed teams, friends, virtual meeting, online meeting, web based video conferencing, peer to peer video conferencing, p2p video conferencing, webRTC video conferencing">
+    content="WebRTC, video conferencing, distributed teams, friends, virtual meeting, online meeting, web based video conferencing, peer to peer video conferencing, p2p video conferencing, webRTC video conferencing, voice activity detection, screen sharing, chat, PWA">
   <meta name="author" content="Aquib Ahmed">
-  <meta name="msapplication-TileColor" content="#0f2027">
-  <meta name="theme-color" content="#0f2027">
+  <meta name="msapplication-TileColor" content="#1e90ff">
+  <meta name="theme-color" content="#1e90ff">
   <meta name="robots" content="index, follow">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="KiteCite Call">
+  <meta name="twitter:title" content="WebRTC Video Conference">
   <meta name="twitter:description"
-    content="KiteCite Call is a webRTC-powered video conferencing platform designed for distributed teams and friends. It is a simple, secure, and private alternative to Zoom, Google Meet, and Skype. No account or installation is required. Just share the link and start the call!">
-  <meta name="twitter:image" content="/images/kitecite.svg">
-  <meta property="og:site_name" content="KiteCite Call">
+    content="A modern, feature-rich video conferencing application built with WebRTC technology. Provides real-time video, audio, and text communication with advanced features like voice activity detection, screen sharing, and cross-platform compatibility.">
+  <meta name="twitter:image" content="/images/icon-512.png">
+  <meta property="og:site_name" content="WebRTC Video Conference">
   <meta property="og:updated_time" content="2023-10-01T12:00:00Z">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="KiteCite Call">
-  <meta property="og:image:type" content="image/svg+xml">
-  <meta property="og:image:secure_url" content="/images/kitecite.svg">
-  <meta property="og:image:width" content="1200">
-
+  <meta property="og:image:alt" content="WebRTC Video Conference">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:secure_url" content="/images/icon-512.png">
 
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0f2027">
+  <meta name="theme-color" content="#1e90ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="icon-192.png">
-
-
+  <meta name="apple-mobile-web-app-title" content="WebRTC Call">
+  <link rel="apple-touch-icon" href="/images/icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/images/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/images/icon-512.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/images/icon-512.png">
+  <link rel="shortcut icon" href="/images/favicon.ico">
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
-  <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
   <link rel="stylesheet" href="./src/styles/style.css">
   <link rel="stylesheet" href="./src/styles/channel.css">
   <link rel="stylesheet" href="./src/styles/userInfoModal.css">
@@ -53,6 +55,7 @@
 <body>
   <h4>Video Conferencing with KiteCite</h4>
   <div id="app">
+    <div id="connectionStatus" aria-live="polite"><span class="dot"></span><span class="text">Connected</span><button id="retryBtn" title="Retry connection">Retry</button></div>
     <button id="push" style="display: none;">🔔 Notification</button>
      <!-- Toast Container -->
     <div id="toastContainer"></div>

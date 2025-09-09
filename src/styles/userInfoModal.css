@@ -83,18 +83,8 @@ input::placeholder, textarea::placeholder {
   color: #bbb;
 }
 
-/* Button styles */
-button {
-  padding: 10px 20px;
-  font-size: 16px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.radio-group
-{
+/* Radio group */
+.radio-group {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
@@ -108,13 +98,11 @@ button {
   padding: 4px;
 }
 
-.radio-group input
-{
+.radio-group input {
   display: none;
 }
 
-.radio-group label
-{
+.radio-group label {
   flex: 1;
   margin: 0;
   padding: 12px 0;
@@ -125,13 +113,18 @@ button {
   background: #0000004f;
 }
 
-
-.radio-group input:checked + label
-{
+.radio-group input:checked + label {
   background: #575757;
 }
 
+/* Submit button */
 .submit-btn {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
   background-color: #1e90ff;
   color: white;
 }
@@ -173,7 +166,7 @@ button {
     font-size: 14px;
   }
 
-  button {
+  .submit-btn {
     font-size: 14px;
   }
 }

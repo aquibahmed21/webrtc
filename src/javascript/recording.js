@@ -1,10 +1,10 @@
-import { showToast } from "./toast";
+import { showToast } from "./toast.js";
 
-let mediaRecorder;
+let mediaRecorder = null;
 let recordedChunks = [];
-let screenStream;
-let micStream;
-let mixedStream;
+let screenStream = null;
+let micStream = null;
+let mixedStream = null;
 
 const startRecordingBtn = document.getElementById('startRecording');
 const stopRecordingBtn = document.getElementById('stopRecording');
@@ -14,6 +14,8 @@ const screenVideo = document.getElementById('screenVideo');
 // Start Recording
 startRecordingBtn.addEventListener('click', async () => {
   try {
+    startRecordingBtn.disabled = true;
+
     // 1. Get screen stream
     screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
@@ -39,71 +41,106 @@ startRecordingBtn.addEventListener('click', async () => {
       ...mergeAudioTracks(screenStream, micStream)
     ]);
 
-    screenVideo.srcObject = mixedStream;
+    if (screenVideo) screenVideo.srcObject = mixedStream;
 
     // 4. Setup MediaRecorder
     recordedChunks = [];
+    const mimeType = 'video/webm;codecs=vp9,opus';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      showToast('Warning', 'VP9 not supported, falling back to default codec');
+    }
     mediaRecorder = new MediaRecorder(mixedStream, {
-      mimeType: 'video/webm;codecs=vp9,opus', // VP9 gives better quality at smaller size
-      videoBitsPerSecond: 5_000_000, // High bitrate (~5 Mbps) = crisp video
-      audioBitsPerSecond: 320_000    // High quality audio bitrate
+      mimeType: MediaRecorder.isTypeSupported(mimeType) ? mimeType : undefined,
+      videoBitsPerSecond: 5_000_000, // ~5 Mbps
+      audioBitsPerSecond: 320_000
     });
 
     mediaRecorder.ondataavailable = event => {
-      if (event.data.size > 0) {
+      if (event.data && event.data.size > 0) {
         recordedChunks.push(event.data);
       }
     };
 
     mediaRecorder.onstop = saveRecording;
 
-    mediaRecorder.start(100); // gather every 100ms chunk
+    mediaRecorder.start(250); // gather chunks every 250ms
 
-    startRecordingBtn.disabled = true;
     stopRecordingBtn.disabled = false;
-
   } catch (err) {
     console.error('Error during recording setup:', err);
     showToast('Error', 'Error during recording setup!');
+    startRecordingBtn.disabled = false;
+    cleanupStreams();
   }
 });
 
 // Stop Recording
 stopRecordingBtn.addEventListener('click', () => {
-  mediaRecorder.stop();
-  stopRecordingBtn.disabled = true;
-  startRecordingBtn.disabled = false;
-
-  // Stop all tracks (screen and mic)
-  screenStream.getTracks().forEach(track => track.stop());
-  micStream.getTracks().forEach(track => track.stop());
+  try {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+  } catch (e) {
+    console.error('Failed stopping MediaRecorder:', e);
+  } finally {
+    stopRecordingBtn.disabled = true;
+    startRecordingBtn.disabled = false;
+    cleanupStreams();
+  }
 });
 
 // Merge Audio Tracks
-function mergeAudioTracks(screenStream, micStream) {
+function mergeAudioTracks(screenStreamParam, micStreamParam) {
   const context = new AudioContext();
   const destination = context.createMediaStreamDestination();
 
   let hasScreenAudio = false;
 
-  if (screenStream.getAudioTracks().length > 0) {
-    const screenAudioSource = context.createMediaStreamSource(screenStream);
+  if (screenStreamParam.getAudioTracks().length > 0) {
+    const screenAudioSource = context.createMediaStreamSource(screenStreamParam);
     screenAudioSource.connect(destination);
     hasScreenAudio = true;
   }
 
-  if (micStream.getAudioTracks().length > 0) {
-    const micAudioSource = context.createMediaStreamSource(micStream);
+  if (micStreamParam.getAudioTracks().length > 0) {
+    const micAudioSource = context.createMediaStreamSource(micStreamParam);
     micAudioSource.connect(destination);
   }
 
-  return hasScreenAudio ? destination.stream.getAudioTracks() : micStream.getAudioTracks();
+  return hasScreenAudio ? destination.stream.getAudioTracks() : micStreamParam.getAudioTracks();
 }
 
 // Save Recording
 function saveRecording() {
-  const blob = new Blob(recordedChunks, { type: 'video/webm' });
-  const url = URL.createObjectURL(blob);
-  downloadLink.href = url;
-  downloadLink.style.display = 'block';
+  try {
+    if (!recordedChunks.length) {
+      showToast('Warning', 'No recorded data available');
+      return;
+    }
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    if (downloadLink) {
+      downloadLink.href = url;
+      downloadLink.style.display = 'block';
+    }
+  } catch (e) {
+    console.error('Failed to save recording:', e);
+    showToast('Error', 'Failed to save recording');
+  }
+}
+
+function cleanupStreams() {
+  try {
+    if (screenStream) {
+      screenStream.getTracks().forEach(track => track.stop());
+    }
+    if (micStream) {
+      micStream.getTracks().forEach(track => track.stop());
+    }
+    screenStream = null;
+    micStream = null;
+    mixedStream = null;
+  } catch (e) {
+    console.warn('Cleanup error:', e);
+  }
 }
