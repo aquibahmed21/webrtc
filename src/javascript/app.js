@@ -279,7 +279,7 @@ initializeTheme();
 const themeSelector = createThemeSelector();
 const controls = document.querySelector('.controls');
 if (controls) {
-  controls.appendChild(themeSelector);
+  controls.insertAdjacentElement('afterend', themeSelector);
 }
 
 // Initialize chat system
@@ -291,7 +291,7 @@ if ('serviceWorker' in navigator) {
     if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
       // Handle notification click - could open chat, focus on specific room, etc.
       console.log('Notification clicked:', event.data.data);
-      
+
       // Example: Open chat panel if notification was about a message
       if (event.data.data.type === 'chat') {
         const chatPanel = document.querySelector('.chat-panel');
@@ -303,7 +303,7 @@ if ('serviceWorker' in navigator) {
           }
         }
       }
-      
+
       // Example: Join specific room if notification was about a call
       if (event.data.data.type === 'call' && event.data.data.roomId) {
         // Navigate to specific room or show join dialog

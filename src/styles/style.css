@@ -302,6 +302,14 @@ select {
     width: 100%;
     margin-bottom: var(--spacing-sm);
   }
+
+  .chat-panel
+  {
+    max-width: 95dvw;
+    left: unset !important;
+    right: unset !important;
+    top: 20% !important;
+  }
 }
 
 /* Modal Styles */
@@ -439,8 +447,10 @@ select {
 .audio-level-indicator {
   position: absolute;
   top: 8px;
-  right: 8px;
+  left: 8px;
   z-index: 10;
+  background: rgb(0 0 0 / 42%);
+  padding: 8px 4px 4px 4px;
 }
 
 .audio-bars {
@@ -452,7 +462,7 @@ select {
 
 .audio-bars .bar {
   width: 3px;
-  background: var(--text-accent);
+  background: var(--bg-error);
   border-radius: 2px;
   transition: all 0.1s ease;
   opacity: 0.3;
@@ -461,12 +471,11 @@ select {
 /* Chat Panel Styles */
 .chat-panel {
   position: fixed;
-  right: 20px;
   top: 50%;
   transform: translateY(-50%);
   width: 300px;
   max-height: 400px;
-  background: var(--bg-panel);
+  background: var(--bg-primary);
   border-radius: var(--radius-large);
   box-shadow: var(--shadow-soft);
   display: none;
@@ -479,7 +488,7 @@ select {
 }
 
 .chat-header {
-  padding: var(--spacing-md);
+  padding: 4px var(--spacing-md);
   border-bottom: 1px solid var(--border-primary);
   display: flex;
   justify-content: space-between;
@@ -524,6 +533,7 @@ select {
   border-top: 1px solid var(--border-primary);
   display: flex;
   gap: var(--spacing-sm);
+  align-items: center;
 }
 
 .chat-input input {
@@ -534,11 +544,13 @@ select {
   background: var(--bg-input);
   color: var(--text-primary);
   font-size: 0.9rem;
+  margin-bottom: unset;
 }
 
 .chat-input button {
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-sm);
   font-size: 0.9rem;
+  flex: unset;
 }
 
 .chat-toggle {
@@ -555,7 +567,7 @@ select {
     width: auto;
     max-height: 300px;
   }
-  
+
   .chat-toggle {
     right: 10px;
     top: 10px;
