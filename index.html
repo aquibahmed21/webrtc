@@ -47,15 +47,15 @@
   <link rel="shortcut icon" href="/webrtc/images/favicon.ico">
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
-  <script type="module" crossorigin src="/webrtc/assets/index-DIZDPGlX.js"></script>
-  <link rel="stylesheet" crossorigin href="/webrtc/assets/index-DFvHjPxH.css">
+  <script type="module" crossorigin src="/webrtc/assets/index-B6NsyZNz.js"></script>
+  <link rel="stylesheet" crossorigin href="/webrtc/assets/index-OLCpSspD.css">
 </head>
 
 <body>
   <h4>Video Conferencing with KiteCite</h4>
   <div id="app">
     <div id="connectionStatus" aria-live="polite"><span class="dot"></span><span class="text">Connected</span><button id="retryBtn" title="Retry connection">Retry</button></div>
-    <button id="push" style="display: none;">🔔 Notification</button>
+    <button id="push" class="hidden">🔔 Notification</button>
      <!-- Toast Container -->
     <div id="toastContainer"></div>
     <div class="mainVideoContainer">
@@ -63,12 +63,15 @@
     </div>
     <div class="Channel"></div>
     <div class="controls" id="controls">
-      <button id="start">Start 🎬</button>
+      <div class="btnList">
+        <button id="start">Start 🎬</button>
       <button id="muteAudio">🔇 Mute Audio</button>
       <button id="muteVideo">🎥 Mute Video</button>
       <button id="switchCamera">🔄 Switch Camera</button>
       <button id="shareScreen" isShared="false">🖥️ Share Screen</button>
+      <button id="pipToggle">🗔 Picture-in-Picture</button>
       <button id="hangup">📞 Hang Up</button>
+      </div>
 
       <div class="sub-control">
         <label for="quality">Select quality:</label>
@@ -96,16 +99,16 @@
           <input type="radio" name="framerate" id="60" value="60">
           <label for="60">60</label>
         </div>
-        <div id="audio-output" style="display: none;">
+        <div id="audio-output" class="hidden">
           <label for="audioOutputSelect">Select audio output device:</label>
           <select id="audioOutputSelect"></select>
           <button id="audioOutputRefresh" title="Refresh audio output devices">🔄 audio output device</button>
         </div>
       </div>
-      <div class="sub-control-recording" style="display:none;">
+      <div class="sub-control-recording hidden">
         <button id="startRecording">Start Recording</button>
         <button id="stopRecording" disabled>Stop Recording</button>
-        <a id="downloadRecording" style="display:none;" download="meeting-recording.webm">Download Recording</a>
+        <a id="downloadRecording" class="hidden" download="meeting-recording.webm">Download Recording</a>
         <video id="screenVideo" autoplay muted playsinline></video>
       </div>
     </div>
