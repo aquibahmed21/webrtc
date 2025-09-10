@@ -434,7 +434,7 @@ userInfoModal.addEventListener('click', event => {
   else if (event.target.id === 'submit-btn') {
     event.stopPropagation();
     const nickname = document.querySelector('#nickname').value;
-    const gender = document.querySelector('.radio-group').querySelector("input:checked").value;
+    const gender = document.querySelector('#divGender').querySelector("input:checked").value;
     const status = document.querySelector('#status').value;
     const age = document.querySelector('#age').value;
     if (!nickname || !gender) {
@@ -453,7 +453,7 @@ function openModal() {
   const h4 = document.querySelector('h4');
   if (userInfo) {
     document.querySelector('#nickname').value = JSON.parse(userInfo).nickname;
-    document.querySelector('.radio-group').querySelector("input[value=" + JSON.parse(userInfo).gender + "]").checked = true;
+    document.querySelector('#divGender').querySelector("input[value=" + JSON.parse(userInfo).gender + "]").checked = true;
     document.querySelector('#status').value = JSON.parse(userInfo).status;
     document.querySelector('#age').value = JSON.parse(userInfo).age;
     h4.innerHTML = "Video Conferencing with KiteCite";
@@ -470,7 +470,7 @@ function closeModal() {
   userInfoModal.classList.remove("show-modal");
   if (userInfo) {
     document.querySelector('#nickname').value = "";
-    document.querySelector('.radio-group').querySelector("input[value='male']").checked = true;
+    document.querySelector('#divGender').querySelector("input[value='male']").checked = true;
     document.querySelector('#status').value = "";
     document.querySelector('#age').value = "";
     h4.innerHTML = "Video Conferencing with KiteCite";
