@@ -109,6 +109,7 @@ body {
   color: #0b0f14;
   padding: 0.35rem 0.7rem;
   font-size: 0.9rem;
+  flex: unset;
 }
 #connectionStatus.reconnecting .dot {
   background: var(--bg-warning);
@@ -152,6 +153,15 @@ video:hover {
   transition: background 0.3s ease, transform 0.2s ease;
 }
 
+#closeChat {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  flex: unset;
+  padding: 4px;
+}
 
 button {
   background: var(--bg-button);
@@ -308,7 +318,9 @@ select {
     max-width: 95dvw;
     left: unset !important;
     right: unset !important;
-    top: 20% !important;
+    top: 5% !important;
+    transform: translateY(-5%) !important;
+    max-height: 55dvh !important;
   }
 }
 
@@ -368,6 +380,7 @@ select {
   min-width: 50px;
   display: block;
   height: 100%;
+  padding: 4px;
 }
 
 .participant video {
@@ -437,7 +450,7 @@ select {
 
 /* Voice Activity Detection Styles */
 .participant.speaking {
-  border: 2px solid var(--text-accent);
+  border: 1px solid var(--text-accent);
   box-shadow: 0 0 20px rgba(30, 144, 255, 0.6);
   transform: scale(1.02);
   transition: all 0.3s ease;
@@ -472,15 +485,18 @@ select {
 .chat-panel {
   position: fixed;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-40%);
   width: 300px;
   max-height: 400px;
-  background: var(--bg-primary);
-  border-radius: var(--radius-large);
-  box-shadow: var(--shadow-soft);
+  background: var(
+  --bg-primary);
+  border-radius: var(
+  --radius-large);
+  box-shadow: var(
+  --shadow-soft);
   display: none;
   flex-direction: column;
-  z-index: 1000;
+  z-index: 1002;
 }
 
 .chat-panel.active {
@@ -498,21 +514,25 @@ select {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-md);
-  max-height: 250px;
+  padding: var(--spacing-md) var(--spacing-sm);
+  max-height: 60dvh;
+  min-height: 30dvh;
 }
 
 .chat-message {
   margin-bottom: var(--spacing-sm);
   padding: var(--spacing-sm);
   border-radius: var(--radius-small);
-  background: var(--bg-card);
+  background: var(--bg-secondary);
   word-wrap: break-word;
+  padding-bottom: 12px;
+  max-width: 85%;
+  border: 0.1px solid #ffffff2b;
 }
 
 .chat-message.own {
-  background: var(--bg-button);
-  margin-left: 20px;
+  background: var(--bg-primary);
+  margin-left: auto;
 }
 
 .chat-message .sender {
@@ -529,7 +549,7 @@ select {
 }
 
 .chat-input {
-  padding: var(--spacing-md);
+  padding: var(--spacing-sm);
   border-top: 1px solid var(--border-primary);
   display: flex;
   gap: var(--spacing-sm);
@@ -553,23 +573,11 @@ select {
   flex: unset;
 }
 
-.chat-toggle {
-  position: fixed;
-  right: 20px;
-  top: 20px;
-  z-index: 1001;
-}
-
 @media (max-width: 768px) {
   .chat-panel {
     right: 10px;
     left: 10px;
     width: auto;
     max-height: 300px;
-  }
-
-  .chat-toggle {
-    right: 10px;
-    top: 10px;
   }
 }

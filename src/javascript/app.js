@@ -175,6 +175,8 @@ async function setupAudioOutputSelection() {
         audioOutputSelect.appendChild(option);
       });
     }
+
+    audioOutputSelect.parentElement.style.display = audioOutputs.length <= 1 ? 'none' : '';
   } catch (err) {
     console.error('Error fetching audio output devices:', err);
   }

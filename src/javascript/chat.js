@@ -14,17 +14,18 @@ function createChatUI() {
   // Create chat toggle button
   chatToggle = document.createElement('button');
   chatToggle.id = 'chatToggle';
-  chatToggle.className = 'chat-toggle';
-  chatToggle.innerHTML = '💬';
+  chatToggle.innerHTML = '💬 Chat';
   chatToggle.title = 'Toggle Chat';
-  document.body.appendChild(chatToggle);
+  const switchCamera = document.getElementById("switchCamera");
+  switchCamera.parentNode.insertBefore(chatToggle, switchCamera.nextSibling);
+
 
   // Create chat panel
   chatPanel = document.createElement('div');
   chatPanel.className = 'chat-panel';
   chatPanel.innerHTML = `
     <div class="chat-header">
-      <h3>Chat</h3>
+      <span>Chat</span>
       <button id="closeChat" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer;">×</button>
     </div>
     <div class="chat-messages" id="chatMessages">
@@ -77,7 +78,7 @@ function setupChatEventListeners() {
 function sendMessage() {
   const chatInput = document.getElementById('chatInput');
   const message = chatInput.value.trim();
-  
+
   if (!message) return;
 
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -104,9 +105,9 @@ function addMessageToChat(messageData, isOwn = false) {
   const chatMessagesContainer = document.getElementById('chatMessages');
   const messageElement = document.createElement('div');
   messageElement.className = `chat-message ${isOwn ? 'own' : ''}`;
-  
+
   const time = new Date(messageData.timestamp).toLocaleTimeString();
-  
+
   messageElement.innerHTML = `
     <div class="sender">${messageData.sender}</div>
     <div>${escapeHtml(messageData.message)}</div>
@@ -114,13 +115,13 @@ function addMessageToChat(messageData, isOwn = false) {
   `;
 
   chatMessagesContainer.appendChild(messageElement);
-  
+
   // Auto-scroll to bottom
   chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
 
   // Store message
   chatMessages.push(messageData);
-  
+
   // Keep only last 100 messages
   if (chatMessages.length > 100) {
     chatMessages = chatMessages.slice(-100);
@@ -135,8 +136,8 @@ function sendChatMessage(messageData) {
       if (roomName) {
         drone.publish({
           room: roomName,
-          message: { 
-            type: 'chat', 
+          message: {
+            type: 'chat',
             messageData: messageData,
             userInfo: JSON.parse(localStorage.getItem('userInfo') || '{}')
           }
