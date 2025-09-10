@@ -63,23 +63,23 @@ export const themes = {
       '--border-success': '#059669'
     }
   },
-  purple: {
-    name: 'Purple',
+  darkcyan: {
+    name: 'Dark Cyan',
     colors: {
-      '--bg-primary': '#1e1b4b',
-      '--bg-secondary': '#312e81',
-      '--bg-tertiary': '#4338ca',
+      '--bg-primary': '#052b2b',
+      '--bg-secondary': '#074040',
+      '--bg-tertiary': '#0b5a5a',
       '--bg-panel': 'rgba(255, 255, 255, 0.05)',
       '--bg-card': 'rgba(0, 0, 0, 0.2)',
-      '--bg-button': '#8b5cf6',
-      '--bg-button-hover': '#a78bfa',
+      '--bg-button': '#008b8b',
+      '--bg-button-hover': '#00a0a0',
       '--bg-success': '#10b981',
       '--bg-warning': '#f59e0b',
       '--bg-error': '#ef4444',
       '--bg-info': '#06b6d4',
       '--text-primary': '#ffffff',
-      '--text-secondary': '#e0e7ff',
-      '--text-muted': '#c7d2fe',
+      '--text-secondary': '#d1f5f5',
+      '--text-muted': '#a7e0e0',
       '--border-primary': 'rgba(255, 255, 255, 0.15)',
       '--border-success': '#10b981'
     }
@@ -87,6 +87,8 @@ export const themes = {
 };
 
 export function applyTheme(themeName) {
+  // Backward compatibility: map old 'purple' to 'darkcyan'
+  if (themeName === 'purple') themeName = 'darkcyan';
   const theme = themes[themeName];
   if (!theme) return;
 
@@ -100,7 +102,8 @@ export function applyTheme(themeName) {
 }
 
 export function getCurrentTheme() {
-  return localStorage.getItem('selectedTheme') || 'default';
+  const saved = localStorage.getItem('selectedTheme') || 'default';
+  return saved === 'purple' ? 'darkcyan' : saved;
 }
 
 export function initializeTheme() {
