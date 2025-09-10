@@ -5,6 +5,7 @@ import { showToast } from './toast.js';
 import { receiveChatMessage } from './chat.js';
 
 const membersList = [];
+const memberSubscribers = new Set();
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
 
 const peerConnections = {};
@@ -54,7 +55,7 @@ const configuration = { iceServers };
 
 export function setupRoom(localStreamRef, onRemoteTrack) {
   localStream = localStreamRef;
-  const ROOM_NAME = 'observable-e7b2d4';
+  const ROOM_NAME = (localStorage.getItem('roomName') || 'observable-e7b2d4');
   signallingRef = createScaledrone(ROOM_NAME, handleOpen, handleMessage);
   drone = signallingRef.drone;
   room = signallingRef.room;
@@ -118,11 +119,12 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
   }
 
   function handleMessage(message) {
-    const { data, member } = message;
-    const senderId = member.id;
+    const { data } = message || {};
+    const senderId = message?.member?.id;
+    if (!data) return;
 
     if (!drone) return;
-    if (senderId === drone.clientId) return;
+    if (!senderId || senderId === drone.clientId) return;
 
 
     switch (data.type) {
@@ -198,6 +200,34 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         }
         break;
 
+      case 'dm':
+        // Direct message to a specific recipient
+        try {
+          if (data.to === drone.clientId && data.messageData) {
+            import('./users.js').then(({ receiveDirectMessage }) => {
+              if (typeof receiveDirectMessage === 'function') {
+                receiveDirectMessage(data.messageData, data.fromUserInfo);
+              }
+            }).catch(() => {});
+          }
+        } catch {}
+        break;
+
+      case 'invite':
+        try {
+          if (data.to === drone.clientId && data.roomName) {
+            const inviter = membersList.find(m => m.id === senderId)?.clientData?.userInfo?.nickname || 'Someone';
+            const join = confirm(`${inviter} invited you to join room "${data.roomName}". Join now?`);
+            if (join) {
+              localStorage.setItem('roomName', data.roomName);
+              showToast('Info', `Joining room ${data.roomName}...`);
+              // simple approach: reload to reinit with new room
+              setTimeout(() => location.reload(), 300);
+            }
+          }
+        } catch {}
+        break;
+
       default:
       console.warn('Unknown data type:', data.type);
       showToast('Warning', 'Unknown data type: ' + data.type);
@@ -219,6 +249,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
           }
         }
       });
+      notifyMemberSubscribers();
     });
 
     room.on('member_join', member => {
@@ -228,6 +259,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
       if (!peerConnections[member.id]) {
         createPeerConnection(member.id, false, onRemoteTrackCb);
       }
+      notifyMemberSubscribers();
     });
 
     room.on('member_leave', memberObj => {
@@ -245,6 +277,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         delete peerConnections[memberObj.id];
       }
       delete candidateQueues[memberObj.id];
+      notifyMemberSubscribers();
     });
   }
 
@@ -369,6 +402,50 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
       console.error('Reconnect attempt failed:', e);
     }
   }
+}
+
+export function getPeerConnections() {
+  return peerConnections;
+}
+
+export function getPeerName(peerId) {
+  try {
+    if (!peerId) return '';
+    const m = membersList.find(x => x?.id === peerId);
+    return m?.clientData?.userInfo?.nickname || '';
+  } catch { return ''; }
+}
+
+// Publish updates to subscribers when member list changes
+function notifyMemberSubscribers() {
+  try {
+    memberSubscribers.forEach(cb => {
+      try { cb(getMembers()); } catch {}
+    });
+    // Persist current room members snapshot for Rooms Manager
+    try {
+      const roomName = localStorage.getItem('roomName') || 'observable-e7b2d4';
+      const snapshot = getMembers().map(m => ({ id: m.id, nickname: m.userInfo?.nickname || '' }));
+      localStorage.setItem(`rooms_members_${roomName}`, JSON.stringify(snapshot));
+    } catch {}
+  } catch {}
+}
+
+export function subscribeMembers(callback) {
+  if (typeof callback === 'function') {
+    memberSubscribers.add(callback);
+    // immediate push
+    try { callback(getMembers()); } catch {}
+    return () => memberSubscribers.delete(callback);
+  }
+  return () => {};
+}
+
+export function getMembers() {
+  return membersList.filter(m => !!m && m.id !== (drone?.clientId)).map(m => ({
+    id: m.id,
+    userInfo: m.clientData?.userInfo || {}
+  }));
 }
 
 export function manualReconnect() {

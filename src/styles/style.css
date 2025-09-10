@@ -130,7 +130,7 @@ body {
 }
 
 video:hover {
-  transform: scale(1.02);
+  /* transform: scale(1.02); */
 }
 
 .controls {
@@ -201,6 +201,55 @@ label,
 select {
   display: inline-block;
   margin-top: var(--spacing-sm);
+}
+
+.hidden { display: none !important; }
+
+/* Controls group */
+.btnList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.btnList > button {
+  background: linear-gradient(180deg, var(--bg-button), rgba(0,0,0,0.1));
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  padding: 0.55rem 1.1rem;
+  border-radius: 10px;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btnList > button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+}
+
+.btnList > button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.btnList > #start {
+  background: linear-gradient(180deg, #22c55e, #16a34a);
+}
+
+.btnList > #hangup {
+  background: linear-gradient(180deg, #ef4444, #b91c1c);
+}
+
+.btnList > #shareScreen[isShared="true"] {
+  background: linear-gradient(180deg, #06b6d4, #0e7490);
+}
+
+@media (max-width: 768px) {
+  .btnList > button {
+    flex: 1 1 calc(50% - 8px);
+  }
 }
 
 /* Basic button styling */
@@ -459,18 +508,29 @@ select {
 /* Audio Level Indicator */
 .audio-level-indicator {
   position: absolute;
-  top: 8px;
+  bottom: 8px;
   left: 8px;
-  z-index: 10;
-  background: rgb(0 0 0 / 42%);
-  padding: 8px 4px 4px 4px;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 6px 6px 4px 6px;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.participant:hover .audio-level-indicator,
+.participant.speaking .audio-level-indicator {
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .audio-bars {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 20px;
+  height: 18px;
 }
 
 .audio-bars .bar {
@@ -481,19 +541,32 @@ select {
   opacity: 0.3;
 }
 
+@media (max-width: 480px) {
+  .audio-level-indicator {
+    bottom: 6px;
+    left: 6px;
+    padding: 4px;
+    opacity: 0.5;
+  }
+  .audio-bars {
+    gap: 1px;
+    height: 14px;
+  }
+  .audio-bars .bar {
+    width: 2px;
+  }
+}
+
 /* Chat Panel Styles */
 .chat-panel {
   position: fixed;
   top: 50%;
   transform: translateY(-40%);
-  width: 300px;
-  max-height: 400px;
-  background: var(
-  --bg-primary);
-  border-radius: var(
-  --radius-large);
-  box-shadow: var(
-  --shadow-soft);
+  width: 420px;
+  max-height: 70vh;
+  background: var(--bg-primary);
+  border-radius: var(--radius-large);
+  box-shadow: var(--shadow-soft);
   display: none;
   flex-direction: column;
   z-index: 1002;
@@ -552,8 +625,22 @@ select {
   padding: var(--spacing-sm);
   border-top: 1px solid var(--border-primary);
   display: flex;
-  gap: var(--spacing-sm);
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Chat editor overrides */
+#chatEditor {
+  width: 100% !important;
+  min-height: 120px !important;
+  max-height: 40vh !important;
+  line-height: 1.35;
+  font-size: 0.95rem;
+}
+
+/* Toolbar row responsiveness */
+#chatToolbar {
+  flex-wrap: wrap;
 }
 
 .chat-input input {
@@ -573,11 +660,24 @@ select {
   flex: unset;
 }
 
+@media (max-width: 1024px) {
+  .chat-panel {
+    width: 360px;
+    max-height: 60vh;
+  }
+  #chatEditor {
+    min-height: 100px !important;
+  }
+}
+
 @media (max-width: 768px) {
   .chat-panel {
     right: 10px;
     left: 10px;
     width: auto;
-    max-height: 300px;
+    max-height: 70vh;
+  }
+  #chatEditor {
+    min-height: 90px !important;
   }
 }

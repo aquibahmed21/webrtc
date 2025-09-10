@@ -7,39 +7,18 @@ export const themes = {
       '--bg-secondary': '#203a43',
       '--bg-tertiary': '#2c5364',
       '--bg-panel': 'rgba(255, 255, 255, 0.05)',
-      '--bg-card': 'rgba(0, 0, 0, 0.2)',
-      '--bg-button': '#1e90ff',
-      '--bg-button-hover': '#3ea0ff',
-      '--bg-success': '#16a34a',
-      '--bg-warning': '#f59e0b',
-      '--bg-error': '#dc2626',
-      '--bg-info': '#17a2b8',
-      '--text-primary': '#fff',
-      '--text-secondary': '#ddd',
-      '--text-muted': '#bbb',
-      '--border-primary': 'rgba(255, 255, 255, 0.15)',
-      '--border-success': '#4ade80'
+      '--text-primary': '#ffffff',
+      '--border-primary': 'rgba(255, 255, 255, 0.15)'
     }
   },
   dark: {
     name: 'Dark',
     colors: {
-      '--bg-primary': '#000000',
+      '--bg-primary': '#0b0b0b',
       '--bg-secondary': '#1a1a1a',
       '--bg-tertiary': '#2d2d2d',
-      '--bg-panel': 'rgba(255, 255, 255, 0.03)',
-      '--bg-card': 'rgba(0, 0, 0, 0.4)',
-      '--bg-button': '#6366f1',
-      '--bg-button-hover': '#818cf8',
-      '--bg-success': '#10b981',
-      '--bg-warning': '#f59e0b',
-      '--bg-error': '#ef4444',
-      '--bg-info': '#06b6d4',
       '--text-primary': '#ffffff',
-      '--text-secondary': '#e5e7eb',
-      '--text-muted': '#9ca3af',
-      '--border-primary': 'rgba(255, 255, 255, 0.1)',
-      '--border-success': '#10b981'
+      '--border-primary': 'rgba(255, 255, 255, 0.1)'
     }
   },
   light: {
@@ -48,19 +27,8 @@ export const themes = {
       '--bg-primary': '#f8fafc',
       '--bg-secondary': '#e2e8f0',
       '--bg-tertiary': '#cbd5e1',
-      '--bg-panel': 'rgba(0, 0, 0, 0.05)',
-      '--bg-card': 'rgba(255, 255, 255, 0.8)',
-      '--bg-button': '#3b82f6',
-      '--bg-button-hover': '#2563eb',
-      '--bg-success': '#059669',
-      '--bg-warning': '#d97706',
-      '--bg-error': '#dc2626',
-      '--bg-info': '#0891b2',
       '--text-primary': '#1e293b',
-      '--text-secondary': '#475569',
-      '--text-muted': '#64748b',
-      '--border-primary': 'rgba(0, 0, 0, 0.1)',
-      '--border-success': '#059669'
+      '--border-primary': 'rgba(0, 0, 0, 0.1)'
     }
   },
   darkcyan: {
@@ -69,19 +37,8 @@ export const themes = {
       '--bg-primary': '#052b2b',
       '--bg-secondary': '#074040',
       '--bg-tertiary': '#0b5a5a',
-      '--bg-panel': 'rgba(255, 255, 255, 0.05)',
-      '--bg-card': 'rgba(0, 0, 0, 0.2)',
-      '--bg-button': '#008b8b',
-      '--bg-button-hover': '#00a0a0',
-      '--bg-success': '#10b981',
-      '--bg-warning': '#f59e0b',
-      '--bg-error': '#ef4444',
-      '--bg-info': '#06b6d4',
       '--text-primary': '#ffffff',
-      '--text-secondary': '#d1f5f5',
-      '--text-muted': '#a7e0e0',
-      '--border-primary': 'rgba(255, 255, 255, 0.15)',
-      '--border-success': '#10b981'
+      '--border-primary': 'rgba(255, 255, 255, 0.15)'
     }
   }
 };

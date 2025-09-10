@@ -17,5 +17,8 @@ export default defineConfig({
   server: {
     open: true
   },
-  base: "/webrtc"
+  base: "/webrtc",
+  test: {
+    environment: 'jsdom'
+  }
 });

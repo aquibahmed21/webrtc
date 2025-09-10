@@ -1,11 +1,12 @@
 // app.js
 import { serviceWorkerMain } from './main.js';
 import { getLocalStream, createVideoElement, switchCamera } from './media.js';
-import { setupRoom, pcInfo, drone, manualReconnect, connectionStatus } from './room.js';
+import { setupRoom, pcInfo, drone, manualReconnect, connectionStatus, getPeerConnections, getPeerName } from './room.js';
 import { showToast } from './toast.js';
 import { urlBase64ToUint8Array } from './util.js';
 import { initializeTheme, createThemeSelector } from './theme.js';
 import { initializeChat } from './chat.js';
+import { initializeUsersPanel } from './users.js';
 
 export const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -17,18 +18,32 @@ const userInfoModal = document.querySelector('#userInfoModal');
 const retryBtn = document.querySelector('#retryBtn');
 const connectionStatusBar = document.querySelector('#connectionStatus');
 const connectionStatusText = connectionStatusBar?.querySelector('.text');
+let callStartMs = null;
+let statsInterval = null;
+let statsVisible = true;
+const pipToggleBtn = document.getElementById('pipToggle');
 
 const serverURL = window.location.hostname === 'localhost' ? 'http://localhost:3000/' :
   'https://web-push-3zaz.onrender.com/';
 const subscribeToPushNotification = document.querySelector('#push');
 
 function SendPushToAll(title, body) {
-  const initiator = JSON.parse(window.localStorage.getItem('userInfo'))?.id || 0;
-  fetch(serverURL + 'notifyAll', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initiator, title, body })
-  });
+  try {
+    if (!navigator.onLine) return;
+    const initiator = JSON.parse(window.localStorage.getItem('userInfo'))?.id || 0;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    fetch(serverURL + 'notifyAll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initiator, title, body }),
+      signal: controller.signal
+    }).catch(err => {
+      console.warn('NotifyAll failed (ignored):', err?.message || err);
+    }).finally(() => clearTimeout(timeout));
+  } catch (e) {
+    console.warn('NotifyAll threw (ignored):', e?.message || e);
+  }
 }
 
 async function IsSubscribedToPush () {
@@ -229,6 +244,9 @@ document.querySelector("#controls").addEventListener('click', async event => {
         }, 300);
       }
       break;
+    case 'pipToggle':
+      handlePiPToggle();
+      break;
   }
 });
 
@@ -244,11 +262,60 @@ document.querySelector("#localMainVideo").addEventListener("dblclick", event => 
   event.target.requestFullscreen();
 });
 
+// Picture-in-Picture setup
+if (pipToggleBtn) {
+  // Feature detection and button visibility
+  const pipSupported = 'pictureInPictureEnabled' in document && typeof HTMLVideoElement !== 'undefined' && 'requestPictureInPicture' in HTMLVideoElement.prototype;
+  if (!pipSupported) {
+    pipToggleBtn.style.display = 'none';
+  } else {
+    const mainVideo = document.getElementById('localMainVideo');
+    if (mainVideo) {
+      mainVideo.addEventListener('enterpictureinpicture', () => {
+        pipToggleBtn.textContent = '🗗 Exit PiP';
+      });
+      mainVideo.addEventListener('leavepictureinpicture', () => {
+        pipToggleBtn.textContent = '🗔 Picture-in-Picture';
+      });
+    }
+  }
+}
+
+async function handlePiPToggle() {
+  try {
+    if (!('pictureInPictureEnabled' in document)) return;
+    const mainVideo = document.getElementById('localMainVideo');
+    if (!mainVideo || !mainVideo.srcObject) return;
+
+    // Ensure video is playing to enter PiP on some browsers
+    if (mainVideo.paused) {
+      try { await mainVideo.play(); } catch {}
+    }
+
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+      return;
+    }
+
+    // If another element is in PiP, exit first
+    if (document.pictureInPictureElement && document.pictureInPictureElement !== mainVideo) {
+      await document.exitPictureInPicture();
+    }
+
+    await mainVideo.requestPictureInPicture();
+  } catch (err) {
+    console.error('PiP toggle failed:', err);
+    showToast('Error', 'Unable to toggle Picture-in-Picture');
+  }
+}
+
 async function main() {
   const nickname = JSON.parse(window.localStorage.getItem('userInfo'))?.nickname || "No name";
   SendPushToAll("Video Conferencing with KiteCite", "Started by " + nickname);
   localStream = await getLocalStream();
   createVideoElement(localStream, 'localVideo', true, "You");
+  callStartMs = Date.now();
+  startStatsPolling();
 
   if (!isIos)
     setupAudioOutputSelection();
@@ -283,9 +350,26 @@ const controls = document.querySelector('.controls');
 if (controls) {
   controls.insertAdjacentElement('afterend', themeSelector);
 }
+// Add stats toggle button next to PiP if available
+const pipBtn = document.getElementById('pipToggle') || document.getElementById('shareScreen') || document.getElementById('hangup');
+if (pipBtn) {
+  const statsToggle = document.createElement('button');
+  statsToggle.id = 'statsToggle';
+  statsToggle.textContent = '📊 Stats';
+  statsToggle.title = 'Show/Hide bitrate stats';
+  pipBtn.parentNode.insertBefore(statsToggle, pipBtn.nextSibling);
+  statsToggle.addEventListener('click', () => {
+    statsVisible = !statsVisible;
+    const panel = document.getElementById('statsPanel');
+    if (panel) panel.style.display = statsVisible ? '' : 'none';
+  });
+}
 
 // Initialize chat system
 initializeChat();
+
+// Initialize users panel
+initializeUsersPanel();
 
 // Handle service worker messages (notification clicks)
 if ('serviceWorker' in navigator) {
@@ -398,4 +482,185 @@ function closeModal() {
     h4.innerHTML = "Dear Anonymous User, Please Enter Your Details By Clicking Here";
     h4.addEventListener('click', openModal);
   }
+}
+
+// ===== Call duration + Bitrate stats UI =====
+let statsPanel = null;
+function ensureStatsPanel() {
+  if (statsPanel) return statsPanel;
+  statsPanel = document.createElement('div');
+  statsPanel.id = 'statsPanel';
+  statsPanel.style.position = 'fixed';
+  statsPanel.style.bottom = '10px';
+  statsPanel.style.left = '10px';
+  statsPanel.style.zIndex = '1001';
+  statsPanel.style.background = 'var(--bg-card)';
+  statsPanel.style.border = '1px solid var(--border-primary)';
+  statsPanel.style.borderRadius = '8px';
+  statsPanel.style.padding = '8px 10px';
+  statsPanel.style.fontSize = '12px';
+  statsPanel.style.maxWidth = '320px';
+  statsPanel.innerHTML = `<div id="callDuration">Duration: 00:00</div><div id="overallStats"></div><div id="perPeerStats" style="margin-top:6px;"></div>`;
+  document.body.appendChild(statsPanel);
+
+  // Make draggable within viewport
+  makeDraggable(statsPanel);
+  return statsPanel;
+}
+
+function formatDuration(ms) {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600).toString().padStart(2, '0');
+  const m = Math.floor((total % 3600) / 60).toString().padStart(2, '0');
+  const s = Math.floor(total % 60).toString().padStart(2, '0');
+  return (h === '00' ? `${m}:${s}` : `${h}:${m}:${s}`);
+}
+
+let lastStats = {};
+let baseStats = {};
+async function pollStatsOnce() {
+  try {
+    ensureStatsPanel();
+    if (callStartMs) {
+      const cd = document.getElementById('callDuration');
+      if (cd) cd.textContent = `Duration: ${formatDuration(Date.now() - callStartMs)}`;
+    }
+
+    const peers = getPeerConnections();
+    let overallUpBps = 0, overallDownBps = 0;
+    let overallSentBytes = 0, overallRecvBytes = 0;
+    const perPeer = [];
+
+    const now = Date.now();
+    const pcEntries = Object.entries(peers);
+    for (const [peerId, pc] of pcEntries) {
+      if (!pc || typeof pc.getStats !== 'function') continue;
+      const stats = await pc.getStats();
+      let bytesSent = 0, bytesRecv = 0;
+      stats.forEach(report => {
+        if (report.type === 'outbound-rtp' && !report.isRemote) {
+          if (typeof report.bytesSent === 'number') bytesSent += report.bytesSent;
+        }
+        if (report.type === 'inbound-rtp' && !report.isRemote) {
+          if (typeof report.bytesReceived === 'number') bytesRecv += report.bytesReceived;
+        }
+      });
+
+      if (!baseStats[peerId]) baseStats[peerId] = { sent: bytesSent, recv: bytesRecv };
+
+      const last = lastStats[peerId] || { t: now, sent: bytesSent, recv: bytesRecv };
+      const dt = Math.max(1, now - last.t) / 1000; // seconds
+      const upBps = Math.max(0, ((bytesSent - last.sent) * 8) / dt);
+      const downBps = Math.max(0, ((bytesRecv - last.recv) * 8) / dt);
+      lastStats[peerId] = { t: now, sent: bytesSent, recv: bytesRecv };
+
+      overallUpBps += upBps;
+      overallDownBps += downBps;
+      overallSentBytes += Math.max(0, bytesSent - baseStats[peerId].sent);
+      overallRecvBytes += Math.max(0, bytesRecv - baseStats[peerId].recv);
+      perPeer.push({ peerId, upBps, downBps });
+    }
+
+    // Render
+    const overall = document.getElementById('overallStats');
+    if (overall) overall.textContent = `Total Up: ${formatBytes(overallSentBytes)} | Total Down: ${formatBytes(overallRecvBytes)}`;
+    const per = document.getElementById('perPeerStats');
+    if (per) per.innerHTML = perPeer.map(p => {
+      const name = getPeerName(p.peerId) || p.peerId;
+      return `<div>${escapeHtml(name)}: ↑ ${formatBps(p.upBps)} ↓ ${formatBps(p.downBps)}</div>`;
+    }).join('');
+  } catch (e) {
+    // ignore errors during polling
+  }
+}
+
+function formatBps(bps) {
+  if (!isFinite(bps)) return '0 bps';
+  if (bps < 1000) return `${bps.toFixed(0)} bps`;
+  if (bps < 1_000_000) return `${(bps/1000).toFixed(1)} Kbps`;
+  if (bps < 1_000_000_000) return `${(bps/1_000_000).toFixed(1)} Mbps`;
+  return `${(bps/1_000_000_000).toFixed(2)} Gbps`;
+}
+
+function formatBytes(bytes) {
+  if (!isFinite(bytes)) return '0 B';
+  if (bytes < 1024) return `${bytes.toFixed(0)} B`;
+  if (bytes < 1024*1024) return `${(bytes/1024).toFixed(1)} KB`;
+  if (bytes < 1024*1024*1024) return `${(bytes/1024/1024).toFixed(1)} MB`;
+  return `${(bytes/1024/1024/1024).toFixed(2)} GB`;
+}
+
+function startStatsPolling() {
+  try {
+    ensureStatsPanel();
+    if (statsInterval) clearInterval(statsInterval);
+    statsInterval = setInterval(pollStatsOnce, 1000);
+  } catch {}
+}
+
+function stopStatsPolling() {
+  try { if (statsInterval) clearInterval(statsInterval); } catch {}
+  statsInterval = null;
+  lastStats = {};
+  baseStats = {};
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text == null ? '' : String(text);
+  return div.innerHTML;
+}
+
+// ===== Draggable helper =====
+function makeDraggable(el) {
+  let dragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  const onDown = (clientX, clientY) => {
+    const rect = el.getBoundingClientRect();
+    dragging = true;
+    offsetX = clientX - rect.left;
+    offsetY = clientY - rect.top;
+    // Switch to top/left positioning for free movement
+    el.style.right = 'unset';
+    el.style.bottom = 'unset';
+    el.style.transform = 'none';
+    document.body.style.userSelect = 'none';
+  };
+
+  const onMove = (clientX, clientY) => {
+    if (!dragging) return;
+    const maxX = window.innerWidth - el.offsetWidth - 4;
+    const maxY = window.innerHeight - el.offsetHeight - 4;
+    let x = Math.max(4, Math.min(clientX - offsetX, maxX));
+    let y = Math.max(4, Math.min(clientY - offsetY, maxY));
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+  };
+
+  const onUp = () => {
+    dragging = false;
+    document.body.style.userSelect = '';
+  };
+
+  el.style.cursor = 'move';
+  el.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    onDown(e.clientX, e.clientY);
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+  window.addEventListener('mouseup', onUp);
+
+  // Touch support
+  el.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    onDown(t.clientX, t.clientY);
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: true });
+  window.addEventListener('touchend', onUp);
 }
