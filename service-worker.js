@@ -31,7 +31,7 @@ self.addEventListener("fetch", (event) => {
         if (response) {
           return response;
         }
-        
+
         // Otherwise fetch from network
         return fetch(event.request).then((response) => {
           // Don't cache non-successful responses
@@ -59,7 +59,7 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener('push', event => {
   let notificationData = {
-    title: 'WebRTC Conference',
+    title: 'KiteCite Conference',
     body: 'You have a new message or call',
     icon: '/images/icon-192.png',
     badge: '/images/icon-192.png',
@@ -136,7 +136,7 @@ self.addEventListener('notificationclick', function (event) {
           });
         }
       }
-      
+
       // If no existing window, open a new one
       if (clients.openWindow) {
         return clients.openWindow('/').then(function (newClient) {
