@@ -1,6 +1,6 @@
 {
-  "name": "WebRTC Video Conference",
-  "short_name": "WebRTC Call",
+  "name": "Kitecite",
+  "short_name": "Kitecite",
   "description": "A modern, feature-rich video conferencing application built with WebRTC technology. Provides real-time video, audio, and text communication with advanced features like voice activity detection, screen sharing, and cross-platform compatibility.",
   "start_url": "/",
   "scope": "/",
@@ -67,7 +67,7 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "WebRTC Conference Main Interface"
+      "label": "Kitecite Video Conference Main Interface"
     }
   ],
   "shortcuts": [

@@ -681,3 +681,8 @@ select {
     min-height: 90px !important;
   }
 }
+
+#emojiMenu {
+  top: unset !important;
+  left: unset !important;
+}

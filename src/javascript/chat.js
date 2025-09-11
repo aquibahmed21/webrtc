@@ -42,12 +42,12 @@ function createChatUI() {
       </div>
     </div>
     <div class="chat-input">
-      <div style="display:flex; gap:6px; width:100%; align-items:center;">
+      <div style="display:flex;gap:6px;width:100%;align-items:center;justify-content: flex-end;">
         <div id="chatToolbar" style="display:flex; gap:6px;">
           <button id="btnBold" title="Bold" style="flex:unset; padding:4px 8px;">B</button>
           <button id="btnItalic" title="Italic" style="flex:unset; padding:4px 8px;"><i>I</i></button>
           <button id="btnEmoji" title="Emoji" style="flex:unset; padding:4px 8px;">😊</button>
-          <button id="btnAttach" title="Attach file" style="flex:unset; padding:4px 8px;">📎</button>
+          <button id="btnAttach" title="Attach file" style="flex:unset; padding:4px 8px; display:none;">📎</button>
           <input id="fileInput" type="file" multiple style="display:none;" />
         </div>
         <div id="replyContext" style="display:none; font-size:0.8rem; opacity:0.8; background: var(--bg-secondary); padding:2px 6px; border-radius:6px;"></div>
