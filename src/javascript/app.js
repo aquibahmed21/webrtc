@@ -1,6 +1,6 @@
 // app.js
 import { serviceWorkerMain } from './main.js';
-import { getLocalStream, createVideoElement, switchCamera } from './media.js';
+import { getLocalStream, createVideoElement, switchCamera, switchToSelectedDevices, setSelectedDevices, getSelectedDevices, getCurrentLocalStream } from './media.js';
 import { setupRoom, pcInfo, drone, manualReconnect, connectionStatus, getPeerConnections, getPeerName } from './room.js';
 import { showToast } from './toast.js';
 import { urlBase64ToUint8Array } from './util.js';
@@ -22,10 +22,36 @@ let callStartMs = null;
 let statsInterval = null;
 let statsVisible = true;
 const pipToggleBtn = document.getElementById('pipToggle');
+const videoInputSelect = document.getElementById('videoInputSelect');
+const audioInputSelect = document.getElementById('audioInputSelect');
+const audioOutputSelect = document.getElementById('audioOutputSelect');
+const videoDevicesRefresh = document.getElementById('videoDevicesRefresh');
+const audioDevicesRefresh = document.getElementById('audioDevicesRefresh');
 
 const serverURL = window.location.hostname === 'localhost' ? 'http://localhost:3000/' :
   'https://web-push-3zaz.onrender.com/';
 const subscribeToPushNotification = document.querySelector('#push');
+navigator.mediaDevices?.getUserMedia && (async () => {
+  // Attach change handlers for input selectors
+  if (videoInputSelect) {
+    videoInputSelect.addEventListener('change', async () => {
+      const vid = videoInputSelect.value || '';
+      const { audioDeviceId } = getSelectedDevices();
+      setSelectedDevices({ videoDeviceId: vid });
+      persistSelectedDevices();
+      try { await switchToSelectedDevices(vid, audioDeviceId); } catch (e) { console.warn(e); }
+    });
+  }
+  if (audioInputSelect) {
+    audioInputSelect.addEventListener('change', async () => {
+      const aud = audioInputSelect.value || '';
+      const { videoDeviceId } = getSelectedDevices();
+      setSelectedDevices({ audioDeviceId: aud });
+      persistSelectedDevices();
+      try { await switchToSelectedDevices(videoDeviceId, aud); } catch (e) { console.warn(e); }
+    });
+  }
+})();
 
 function SendPushToAll(title, body) {
   try {
@@ -173,7 +199,7 @@ document.querySelector("#audioOutputSelect").addEventListener('change', async ()
 });
 
 navigator.mediaDevices.addEventListener('devicechange', () => {
-  setupAudioOutputSelection();
+  populateDeviceSelectors();
 });
 
 async function setupAudioOutputSelection() {
@@ -182,8 +208,8 @@ async function setupAudioOutputSelection() {
     const audioOutputs = devices.filter(device => device.kind === 'audiooutput' || device.label.includes("headset"));
 
     if (audioOutputs.length > 0) {
+      audioOutputSelect.innerHTML = '';
       audioOutputs.forEach(device => {
-        if (audioOutputSelect.querySelector(`option[value="${device.deviceId}"]`)) return;
         const option = document.createElement('option');
         option.value = device.deviceId;
         option.text = device.label || device.kind || `Speaker ${audioOutputSelect.length + 1}`;
@@ -195,6 +221,64 @@ async function setupAudioOutputSelection() {
   } catch (err) {
     console.error('Error fetching audio output devices:', err);
   }
+}
+
+async function populateDeviceSelectors() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoInputs = devices.filter(d => d.kind === 'videoinput');
+    const audioInputs = devices.filter(d => d.kind === 'audioinput');
+
+    // Populate cameras
+    if (videoInputSelect) {
+      const current = getSelectedDevices().videoDeviceId;
+      videoInputSelect.innerHTML = '';
+      videoInputs.forEach((d, idx) => {
+        const option = document.createElement('option');
+        option.value = d.deviceId;
+        option.text = d.label || `Camera ${idx + 1}`;
+        videoInputSelect.appendChild(option);
+      });
+      if (current && [...videoInputSelect.options].some(o => o.value === current)) {
+        videoInputSelect.value = current;
+      }
+    }
+
+    // Populate microphones
+    if (audioInputSelect) {
+      const current = getSelectedDevices().audioDeviceId;
+      audioInputSelect.innerHTML = '';
+      audioInputs.forEach((d, idx) => {
+        const option = document.createElement('option');
+        option.value = d.deviceId;
+        option.text = d.label || `Microphone ${idx + 1}`;
+        audioInputSelect.appendChild(option);
+      });
+      if (current && [...audioInputSelect.options].some(o => o.value === current)) {
+        audioInputSelect.value = current;
+      }
+    }
+
+    await setupAudioOutputSelection();
+
+  } catch (e) {
+    console.error('Failed to populate device selectors', e);
+  }
+}
+
+function persistSelectedDevices() {
+  const vid = videoInputSelect?.value || '';
+  const aud = audioInputSelect?.value || '';
+  try { localStorage.setItem('selectedVideoDeviceId', vid); } catch {}
+  try { localStorage.setItem('selectedAudioDeviceId', aud); } catch {}
+}
+
+function restoreSelectedDevices() {
+  try {
+    const vid = localStorage.getItem('selectedVideoDeviceId') || '';
+    const aud = localStorage.getItem('selectedAudioDeviceId') || '';
+    setSelectedDevices({ videoDeviceId: vid || null, audioDeviceId: aud || null });
+  } catch {}
 }
 
 document.querySelector("#controls").addEventListener('click', async event => {
@@ -219,6 +303,12 @@ document.querySelector("#controls").addEventListener('click', async event => {
       break;
     case 'audioOutputRefresh':
       setupAudioOutputSelection();
+      break;
+    case 'videoDevicesRefresh':
+      populateDeviceSelectors();
+      break;
+    case 'audioDevicesRefresh':
+      populateDeviceSelectors();
       break;
     case 'hangup':
       muteVideo.textContent = "🎥 Mute Video";
@@ -312,13 +402,15 @@ async function handlePiPToggle() {
 async function main() {
   const nickname = JSON.parse(window.localStorage.getItem('userInfo'))?.nickname || "No name";
   SendPushToAll("Video Conferencing with KiteCite", "Started by " + nickname);
+  restoreSelectedDevices();
   localStream = await getLocalStream();
   createVideoElement(localStream, 'localVideo', true, "You");
   callStartMs = Date.now();
   startStatsPolling();
 
-  if (!isIos)
-    setupAudioOutputSelection();
+  if (!isIos) {
+    await populateDeviceSelectors();
+  }
 
   if (drone) {
     drone.publish({
@@ -336,7 +428,7 @@ async function main() {
 }
 
 if (!isIos)
-  setupAudioOutputSelection();
+  populateDeviceSelectors();
 
 if (!isMobile)
   document.querySelector('#switchCamera').style.display = 'none';

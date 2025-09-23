@@ -8,6 +8,17 @@ let localheight = 0;
 let localstream = null;
 let localframeRate = 0;
 let localfacingMode = 'user';
+let selectedVideoDeviceId = null;
+let selectedAudioDeviceId = null;
+
+export function getCurrentLocalStream() { return localstream; }
+export function setSelectedDevices({ videoDeviceId, audioDeviceId }) {
+  if (typeof videoDeviceId === 'string') selectedVideoDeviceId = videoDeviceId || null;
+  if (typeof audioDeviceId === 'string') selectedAudioDeviceId = audioDeviceId || null;
+}
+export function getSelectedDevices() {
+  return { videoDeviceId: selectedVideoDeviceId, audioDeviceId: selectedAudioDeviceId };
+}
 
 const quality = document.querySelector('#quality');
 const framerate = document.querySelector('#framerate');
@@ -107,14 +118,16 @@ async function getMediaStream(width, height, frameRate, newFacing) {
     });
   }
   try {
+    const videoConstraints = selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : {
+      width: { ideal: width },
+      height: { ideal: height },
+      frameRate: { ideal: frameRate },
+      facingMode: { ideal: newFacing }
+    };
+    const audioConstraints = selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true;
     const constraints = {
-      video: {
-        width: { ideal: width },
-        height: { ideal: height },
-        frameRate: { ideal: frameRate },
-        facingMode: { ideal: newFacing }
-      },
-      audio: localstream ? false : true // adjust as needed
+      video: videoConstraints,
+      audio: localstream ? false : audioConstraints
     };
 
     const newStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -138,6 +151,7 @@ async function updateStream(width, height, frameRate, isLocal = false, isToggle 
   if (!newStream) return false;
 
   const newVideoTrack = newStream.getVideoTracks()[0];
+  const newAudioTrack = newStream.getAudioTracks()[0];
 
   // Replace track in the existing stream
   if (localstream) {
@@ -148,6 +162,9 @@ async function updateStream(width, height, frameRate, isLocal = false, isToggle 
     }
 
     localstream.addTrack(newVideoTrack);
+    if (newAudioTrack && localstream.getAudioTracks().length === 0) {
+      localstream.addTrack(newAudioTrack);
+    }
   } else {
     localstream = newStream;
   }
@@ -159,11 +176,18 @@ async function updateStream(width, height, frameRate, isLocal = false, isToggle 
     }
   };
   await updateLocalVideoStream();
+  await updateLocalAudioStream();
   return true;
 }
 
 export function switchCamera() {
   updateStream(localwidth, localheight, localframeRate, true, true);
+}
+
+export async function switchToSelectedDevices(videoDeviceId, audioDeviceId) {
+  if (videoDeviceId) selectedVideoDeviceId = videoDeviceId;
+  if (audioDeviceId) selectedAudioDeviceId = audioDeviceId;
+  return await updateStream(localwidth, localheight, localframeRate, true, false);
 }
 
 // media.js
@@ -375,6 +399,25 @@ async function updateLocalVideoStream() {
     }
   } else {
     console.log("No video sender found.");
+  }
+}
+
+async function updateLocalAudioStream() {
+  const pc = pcInfo;
+  if (!pc) return;
+  const audioSender = pc.getSenders().find(sender => sender.track && sender.track.kind === 'audio');
+  const localAudio = localstream?.getAudioTracks()[0];
+  if (!localAudio) return;
+  if (audioSender) {
+    try {
+      await audioSender.replaceTrack(localAudio);
+    } catch (error) {
+      console.error('Error updating local audio stream:', error);
+    }
+  } else {
+    try {
+      pc.addTrack(localAudio, localstream);
+    } catch {}
   }
 }
 
