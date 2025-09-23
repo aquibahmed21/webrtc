@@ -47,7 +47,7 @@
   <link rel="shortcut icon" href="/webrtc/images/favicon.ico">
 
   <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
-  <script type="module" crossorigin src="/webrtc/assets/index-BmbI-UZm.js"></script>
+  <script type="module" crossorigin src="/webrtc/assets/index-8yh9kkh4.js"></script>
   <link rel="stylesheet" crossorigin href="/webrtc/assets/index-CzDksAdY.css">
 </head>
 
@@ -74,6 +74,23 @@
       </div>
 
       <div class="sub-control">
+        <div id="device-selectors" class="device-selectors">
+          <div class="device-row">
+            <label for="videoInputSelect">Camera:</label>
+            <select id="videoInputSelect"></select>
+            <button id="videoDevicesRefresh" title="Refresh cameras">🔄</button>
+          </div>
+          <div class="device-row">
+            <label for="audioInputSelect">Microphone:</label>
+            <select id="audioInputSelect"></select>
+            <button id="audioDevicesRefresh" title="Refresh microphones">🔄</button>
+          </div>
+          <div class="device-row" id="audio-output" class="hidden">
+            <label for="audioOutputSelect">Speaker:</label>
+            <select id="audioOutputSelect"></select>
+            <button id="audioOutputRefresh" title="Refresh speakers">🔄</button>
+          </div>
+        </div>
         <label for="quality">Select quality:</label>
         <div class="radio-group" id="quality">
           <input type="radio" name="quality" id="160x120" value="160x120" checked>
@@ -98,11 +115,6 @@
           <label for="30">30</label>
           <input type="radio" name="framerate" id="60" value="60">
           <label for="60">60</label>
-        </div>
-        <div id="audio-output" class="hidden">
-          <label for="audioOutputSelect">Select audio output device:</label>
-          <select id="audioOutputSelect"></select>
-          <button id="audioOutputRefresh" title="Refresh audio output devices">🔄 audio output device</button>
         </div>
       </div>
       <div class="sub-control-recording hidden">
