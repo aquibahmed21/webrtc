@@ -1,16 +1,18 @@
-// signalling.js
-export function createScaledrone(roomName, onOpen, onMessage) {
-  const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
+import { SignallingRef, UserInfo } from '../types/index.js';
+
+// signalling.ts
+export function createScaledrone(roomName: string, onOpen: (error?: any) => void, onMessage: (message: any) => void): SignallingRef {
+  const userInfo: UserInfo = JSON.parse(window.localStorage.getItem('userInfo') || '{}');
   const CHANNEL_ID = "EoIG3R1I4JdyS4L1";
 
-  const ref = { drone: null, room: null };
-  let drone = null;
-  let room = null;
+  const ref: SignallingRef = { drone: null, room: null };
+  let drone: any = null;
+  let room: any = null;
   let reconnectAttempts = 0;
   const maxReconnectDelayMs = 15000; // cap backoff
 
-  function connect() {
-    drone = new ScaleDrone(CHANNEL_ID, {
+  function connect(): void {
+    drone = new window.ScaleDrone(CHANNEL_ID, {
       data: { userInfo},
      });
     room = drone.subscribe(roomName);
@@ -19,14 +21,14 @@ export function createScaledrone(roomName, onOpen, onMessage) {
     ref.drone = drone;
     ref.room = room;
 
-    drone.on('open', err => {
+    drone.on('open', (err: any) => {
       reconnectAttempts = 0;
       onOpen && onOpen(err);
     });
 
-    room.on('message', msg => onMessage && onMessage(msg));
+    room.on('message', (msg: any) => onMessage && onMessage(msg));
 
-    drone.on('error', err => {
+    drone.on('error', (err: any) => {
       console.error('Scaledrone error:', err);
     });
 
@@ -36,12 +38,12 @@ export function createScaledrone(roomName, onOpen, onMessage) {
     });
 
     // Defensive: room level events
-    room.on('error', err => {
+    room.on('error', (err: any) => {
       console.error('Room error:', err);
     });
   }
 
-  function scheduleReconnect() {
+  function scheduleReconnect(): void {
     if (!navigator.onLine) {
       // wait for online
       window.addEventListener('online', handleOnlineOnce, { once: true });
@@ -58,7 +60,7 @@ export function createScaledrone(roomName, onOpen, onMessage) {
     }, delay);
   }
 
-  function handleOnlineOnce() {
+  function handleOnlineOnce(): void {
     scheduleReconnect();
   }
 

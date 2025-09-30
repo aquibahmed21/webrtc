@@ -1,66 +1,73 @@
 import { pcInfo, drone } from './room.js';
 import { showToast } from './toast.js';
+import { SelectedDevices } from '../types/index.js';
 
-const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
+const userInfo = JSON.parse(window.localStorage.getItem('userInfo') || '{}');
 
 let localwidth = 0;
 let localheight = 0;
-let localstream = null;
+let localstream: MediaStream | null = null;
 let localframeRate = 0;
-let localfacingMode = 'user';
-let selectedVideoDeviceId = null;
-let selectedAudioDeviceId = null;
+let localfacingMode: 'user' | 'environment' = 'user';
+let selectedVideoDeviceId: string | null = null;
+let selectedAudioDeviceId: string | null = null;
 
-export function getCurrentLocalStream() { return localstream; }
-export function setSelectedDevices({ videoDeviceId, audioDeviceId }) {
+export function getCurrentLocalStream(): MediaStream | null { 
+  return localstream; 
+}
+
+export function setSelectedDevices({ videoDeviceId, audioDeviceId }: Partial<SelectedDevices>): void {
   if (typeof videoDeviceId === 'string') selectedVideoDeviceId = videoDeviceId || null;
   if (typeof audioDeviceId === 'string') selectedAudioDeviceId = audioDeviceId || null;
 }
-export function getSelectedDevices() {
+
+export function getSelectedDevices(): SelectedDevices {
   return { videoDeviceId: selectedVideoDeviceId, audioDeviceId: selectedAudioDeviceId };
 }
 
-const quality = document.querySelector('#quality');
-const framerate = document.querySelector('#framerate');
-const screenShare = document.querySelector('#shareScreen');
-const muteVideo = document.querySelector('#muteVideo');
-const switchCamerabutton = document.querySelector('#switchCamera');
-
+const quality = document.querySelector('#quality') as HTMLElement;
+const framerate = document.querySelector('#framerate') as HTMLElement;
+const screenShare = document.querySelector('#shareScreen') as HTMLButtonElement;
+const muteVideo = document.querySelector('#muteVideo') as HTMLButtonElement;
+const switchCamerabutton = document.querySelector('#switchCamera') as HTMLButtonElement;
 
 if (quality) {
-  quality.addEventListener('click', async event => {
-    if (event.target.tagName !== 'INPUT') return;
+  quality.addEventListener('click', async (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    if (target.tagName !== 'INPUT') return;
     if (!localstream) return;
-    const selectedOption = quality.querySelector("input:checked")?.value;
+    const selectedOption = quality.querySelector("input:checked") as HTMLInputElement;
     if (!selectedOption) return;
-    const [width, height] = selectedOption.split('x').map(Number);
+    const [width, height] = selectedOption.value.split('x').map(Number);
     if (!await updateStream(width, height, localframeRate)) return;
   });
 }
 
 if (framerate) {
-  framerate.addEventListener('click', async event => {
-    if (event.target.tagName !== 'INPUT') return;
+  framerate.addEventListener('click', async (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    if (target.tagName !== 'INPUT') return;
     if (!localstream) return;
-    const selectedOption = framerate.querySelector("input:checked")?.value;
+    const selectedOption = framerate.querySelector("input:checked") as HTMLInputElement;
     if (!selectedOption) return;
-    const frameRateValue = Number(selectedOption);
+    const frameRateValue = Number(selectedOption.value);
     if (!await updateStream(localwidth, localheight, frameRateValue)) return;
   });
 }
 
 if (screenShare) {
-  screenShare.addEventListener('click', async event => {
-    const localVideo = document.querySelector("#localVideo");
-    event.target.setAttribute('disabled', 'true');
-    if (event.target.getAttribute('isShared') === 'true') {
-      event.target.textContent = '🖥️ Share Screen';
-      event.target.setAttribute('isShared', 'false');
+  screenShare.addEventListener('click', async (event: Event) => {
+    const target = event.target as HTMLButtonElement;
+    const localVideo = document.querySelector("#localVideo") as HTMLVideoElement;
+    target.setAttribute('disabled', 'true');
+    if (target.getAttribute('isShared') === 'true') {
+      target.textContent = '🖥️ Share Screen';
+      target.setAttribute('isShared', 'false');
       muteVideo?.removeAttribute('disabled');
       quality?.removeAttribute('disabled');
       framerate?.removeAttribute('disabled');
       switchCamerabutton?.removeAttribute('disabled');
-      event.target.removeAttribute('disabled');
+      target.removeAttribute('disabled');
       localVideo?.removeAttribute('screenShare');
       await updateStream(localwidth, localheight, localframeRate);
       if (drone) {
@@ -70,15 +77,15 @@ if (screenShare) {
       return;
     }
 
-    if (!localstream) { event.target.removeAttribute('disabled'); return; }
+    if (!localstream) { target.removeAttribute('disabled'); return; }
 
     try {
       // 1. Capture screen using enhanced function
       const screenStream = await startScreenShare();
       if (!screenStream) return;
 
-      event.target.textContent = '🖥️ Stop Sharing';
-      event.target.setAttribute('isShared', 'true');
+      target.textContent = '🖥️ Stop Sharing';
+      target.setAttribute('isShared', 'true');
       muteVideo?.setAttribute('disabled', 'true');
       quality?.setAttribute('disabled', 'true');
       framerate?.setAttribute('disabled', 'true');
@@ -88,7 +95,7 @@ if (screenShare) {
       if (localstream) {
         const existingVideo = localstream.getVideoTracks()[0];
         if (existingVideo) existingVideo.stop();
-        localstream.getVideoTracks().forEach(t => localstream.removeTrack(t));
+        localstream.getVideoTracks().forEach(t => localstream!.removeTrack(t));
       }
 
       // 2. Replace local video track
@@ -104,16 +111,15 @@ if (screenShare) {
       showToast('Error', 'Error starting screen share');
     }
     finally {
-      event.target.removeAttribute('disabled');
+      target.removeAttribute('disabled');
     }
   });
 }
 
-async function getMediaStream(width, height, frameRate, newFacing) {
-
+async function getMediaStream(width: number, height: number, frameRate: number, newFacing: 'user' | 'environment'): Promise<MediaStream | null> {
   if (localstream) {
     localstream.getVideoTracks().forEach(e => {
-      localstream.removeTrack(e);
+      localstream!.removeTrack(e);
       e.stop();
     });
   }
@@ -125,7 +131,7 @@ async function getMediaStream(width, height, frameRate, newFacing) {
       facingMode: { ideal: newFacing }
     };
     const audioConstraints = selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true;
-    const constraints = {
+    const constraints: MediaStreamConstraints = {
       video: videoConstraints,
       audio: localstream ? false : audioConstraints
     };
@@ -139,7 +145,7 @@ async function getMediaStream(width, height, frameRate, newFacing) {
   }
 }
 
-async function updateStream(width, height, frameRate, isLocal = false, isToggle = false) {
+async function updateStream(width: number, height: number, frameRate: number, isLocal = false, isToggle = false): Promise<boolean> {
   localheight = height;
   localwidth = width;
   localframeRate = frameRate;
@@ -169,7 +175,7 @@ async function updateStream(width, height, frameRate, isLocal = false, isToggle 
     localstream = newStream;
   }
   if (isLocal) {
-    const video = document.querySelector("#localVideo");
+    const video = document.querySelector("#localVideo") as HTMLVideoElement;
     if (video && localstream.getVideoTracks()[0]) {
       video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode || 'user');
       video.srcObject = localstream;
@@ -180,27 +186,27 @@ async function updateStream(width, height, frameRate, isLocal = false, isToggle 
   return true;
 }
 
-export function switchCamera() {
+export function switchCamera(): void {
   updateStream(localwidth, localheight, localframeRate, true, true);
 }
 
-export async function switchToSelectedDevices(videoDeviceId, audioDeviceId) {
+export async function switchToSelectedDevices(videoDeviceId: string, audioDeviceId: string): Promise<boolean> {
   if (videoDeviceId) selectedVideoDeviceId = videoDeviceId;
   if (audioDeviceId) selectedAudioDeviceId = audioDeviceId;
   return await updateStream(localwidth, localheight, localframeRate, true, false);
 }
 
-// media.js
-export async function getLocalStream() {
-  const selectedOption = quality?.querySelector("input:checked")?.value || '640x480';
-  const [width, height] = selectedOption.split('x').map(Number);
-  const framerateInput = framerate?.querySelector("input:checked");
+// media.ts
+export async function getLocalStream(): Promise<MediaStream | null> {
+  const selectedOption = quality?.querySelector("input:checked") as HTMLInputElement;
+  const [width, height] = (selectedOption?.value || '640x480').split('x').map(Number);
+  const framerateInput = framerate?.querySelector("input:checked") as HTMLInputElement;
   const frameRateValue = Number(framerateInput?.value || 30);
   await updateStream(width, height, frameRateValue);
   return localstream;
 }
 
-export function createVideoElement(stream, id, isLocal = false, name = '') {
+export function createVideoElement(stream: MediaStream, id: string, isLocal = false, name = ''): void {
   const div = document.createElement('div');
   div.className = "participant";
   div.setAttribute("data-id", id);
@@ -214,10 +220,9 @@ export function createVideoElement(stream, id, isLocal = false, name = '') {
         <button class="hangup">📞</button>
       </div>
     </div>
-  </div>`;
+  `;
 
-
-  const video = div.querySelector('video');
+  const video = div.querySelector('video') as HTMLVideoElement;
   video.srcObject = stream;
   video.id = id;
   video.autoplay = true;
@@ -225,7 +230,7 @@ export function createVideoElement(stream, id, isLocal = false, name = '') {
 
   video.setAttribute("memberId", id);
 
-  const channel = document.getElementsByClassName("Channel")[0];
+  const channel = document.getElementsByClassName("Channel")[0] as HTMLElement;
   if (!channel) return;
 
   if (isLocal) {
@@ -242,7 +247,7 @@ export function createVideoElement(stream, id, isLocal = false, name = '') {
   }
 }
 
-function handleIncomingStream(stream, video) {
+function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement): void {
   const threshold = 20;  // Voice activity detection threshold
   const audioContext = new AudioContext();
   const source = audioContext.createMediaStreamSource(stream);
@@ -310,8 +315,8 @@ function handleIncomingStream(stream, video) {
   });
 }
 
-function highlightSpeaker(isSpeaking, video) {
-  const participant = video.closest('.participant');
+function highlightSpeaker(isSpeaking: boolean, video: HTMLVideoElement): void {
+  const participant = video.closest('.participant') as HTMLElement;
   if (!participant) return;
 
   if (isSpeaking) {
@@ -325,8 +330,8 @@ function highlightSpeaker(isSpeaking, video) {
   }
 }
 
-function createAudioLevelIndicator(video) {
-  const participant = video.closest('.participant');
+function createAudioLevelIndicator(video: HTMLVideoElement): HTMLElement | null {
+  const participant = video.closest('.participant') as HTMLElement;
   if (!participant) return null;
 
   const indicator = document.createElement('div');
@@ -344,7 +349,7 @@ function createAudioLevelIndicator(video) {
   return indicator;
 }
 
-function updateAudioLevelIndicator(indicator, level) {
+function updateAudioLevelIndicator(indicator: HTMLElement | null, level: number): void {
   if (!indicator) return;
   
   const bars = indicator.querySelectorAll('.bar');
@@ -352,23 +357,24 @@ function updateAudioLevelIndicator(indicator, level) {
   const activeBars = Math.ceil(normalizedLevel * bars.length);
   
   bars.forEach((bar, index) => {
+    const barElement = bar as HTMLElement;
     if (index < activeBars) {
-      bar.style.height = `${20 + (index * 5)}px`;
-      bar.style.opacity = '1';
+      barElement.style.height = `${20 + (index * 5)}px`;
+      barElement.style.opacity = '1';
     } else {
-      bar.style.height = '5px';
-      bar.style.opacity = '0.3';
+      barElement.style.height = '5px';
+      barElement.style.opacity = '0.3';
     }
   });
 }
 
-function notifySpeakingStatus(participantId, isSpeaking) {
+function notifySpeakingStatus(participantId: string, isSpeaking: boolean): void {
   // This would be implemented to notify other participants
   // For now, we'll just log it
   console.log(`Participant ${participantId} is ${isSpeaking ? 'speaking' : 'not speaking'}`);
 }
 
-async function updateLocalVideoStream() {
+async function updateLocalVideoStream(): Promise<void> {
   const pc = pcInfo;
   if (!pc) return;
   const videoSender = pc.getSenders().find(sender => sender.track && sender.track.kind === 'video');
@@ -378,10 +384,11 @@ async function updateLocalVideoStream() {
 
     try {
       // 1. Stop the existing video track
-      oldTrack.stop();
+      oldTrack?.stop();
 
       // 2. Obtain a new video track with the desired constraints
       const newStream = localstream;
+      if (!newStream) return;
       const newVideoTrack = newStream.getVideoTracks()[0];
 
       // 3. Replace the old track with the new track on the sender
@@ -402,7 +409,7 @@ async function updateLocalVideoStream() {
   }
 }
 
-async function updateLocalAudioStream() {
+async function updateLocalAudioStream(): Promise<void> {
   const pc = pcInfo;
   if (!pc) return;
   const audioSender = pc.getSenders().find(sender => sender.track && sender.track.kind === 'audio');
@@ -416,12 +423,12 @@ async function updateLocalAudioStream() {
     }
   } else {
     try {
-      pc.addTrack(localAudio, localstream);
+      pc.addTrack(localAudio, localstream!);
     } catch {}
   }
 }
 
-function getPreferredVideoCodec() {
+function getPreferredVideoCodec(): string {
   const ua = navigator.userAgent;
   const isIOS = /iPhone|iPad|iPod/.test(ua);
   const isAndroid = /Android/.test(ua);
@@ -474,13 +481,13 @@ function getPreferredVideoCodec() {
   return "VP8";
 }
 
-function getSupportedCodecs() {
-  const codecs = [];
+function getSupportedCodecs(): string[] {
+  const codecs: string[] = [];
   
   // Check VP8 support
   if (RTCRtpReceiver.getCapabilities && RTCRtpReceiver.getCapabilities('video')) {
     const videoCapabilities = RTCRtpReceiver.getCapabilities('video');
-    if (videoCapabilities.codecs) {
+    if (videoCapabilities?.codecs) {
       videoCapabilities.codecs.forEach(codec => {
         if (codec.mimeType.includes('VP8')) codecs.push('VP8');
         if (codec.mimeType.includes('VP9')) codecs.push('VP9');
@@ -493,7 +500,7 @@ function getSupportedCodecs() {
   return [...new Set(codecs)]; // Remove duplicates
 }
 
-function preferCodec(sdp, codec, kind = "video") {
+function preferCodec(sdp: string, codec: string, kind = "video"): string {
   const lines = sdp.split("\r\n");
   const mLineIndex = lines.findIndex(line => line.startsWith(`m=${kind}`));
   if (mLineIndex === -1) return sdp;
@@ -501,7 +508,7 @@ function preferCodec(sdp, codec, kind = "video") {
   const codecRegex = new RegExp(`a=rtpmap:(\\d+)\\s${codec}`, "i");
   const codecPayloads = lines
     .filter(line => codecRegex.test(line))
-    .map(line => line.match(codecRegex)[1]);
+    .map(line => line.match(codecRegex)![1]);
 
   if (codecPayloads.length === 0) return sdp;
 
@@ -514,7 +521,7 @@ function preferCodec(sdp, codec, kind = "video") {
   return lines.join("\r\n");
 }
 
-export async function createOfferWithPreferredCodec(pc) {
+export async function createOfferWithPreferredCodec(pc: RTCPeerConnection): Promise<RTCSessionDescriptionInit | null> {
   try {
     const offer = await pc.createOffer();
     const supportedCodecs = getSupportedCodecs();
@@ -526,7 +533,7 @@ export async function createOfferWithPreferredCodec(pc) {
     // Only modify SDP if the preferred codec is supported
     let finalOffer = offer;
     if (supportedCodecs.includes(preferredCodec)) {
-      const modifiedSdp = preferCodec(offer.sdp, preferredCodec);
+      const modifiedSdp = preferCodec(offer.sdp || '', preferredCodec);
       finalOffer = { type: offer.type, sdp: modifiedSdp };
     } else {
       console.warn(`Preferred codec ${preferredCodec} not supported, using default`);
@@ -534,7 +541,7 @@ export async function createOfferWithPreferredCodec(pc) {
       const fallbackCodecs = ['VP8', 'H264', 'VP9'];
       for (const codec of fallbackCodecs) {
         if (supportedCodecs.includes(codec)) {
-          const modifiedSdp = preferCodec(offer.sdp, codec);
+          const modifiedSdp = preferCodec(offer.sdp || '', codec);
           finalOffer = { type: offer.type, sdp: modifiedSdp };
           console.log(`Using fallback codec: ${codec}`);
           break;
@@ -558,7 +565,7 @@ export async function createOfferWithPreferredCodec(pc) {
   }
 }
 
-function checkScreenSharingSupport() {
+function checkScreenSharingSupport(): boolean {
   const ua = navigator.userAgent;
   const isIOS = /iPhone|iPad|iPod/.test(ua);
   const isAndroid = /Android/.test(ua);
@@ -617,7 +624,7 @@ function checkScreenSharingSupport() {
 }
 
 // Enhanced screen sharing with better error handling
-async function startScreenShare() {
+async function startScreenShare(): Promise<MediaStream | null> {
   try {
     // Check if screen sharing is supported
     if (!checkScreenSharingSupport()) {
@@ -625,7 +632,7 @@ async function startScreenShare() {
       return null;
     }
 
-    const constraints = {
+    const constraints: any = {
       video: {
         mediaSource: 'screen',
         width: { ideal: 1920 },
@@ -648,7 +655,7 @@ async function startScreenShare() {
     });
 
     return stream;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Screen sharing error:', error);
     if (error.name === 'NotAllowedError') {
       showToast('Error', 'Screen sharing permission denied.');

@@ -1,13 +1,14 @@
-// users.js - Participants list and direct messages
+// users.ts - Participants list and direct messages
 import { subscribeMembers, getMembers } from './room.js';
 import { sendDirectMessage } from './chat.js';
 import { showToast } from './toast.js';
+import { Member, UserInfo } from '../types/index.js';
 
-let usersPanel = null;
-let usersToggle = null;
-let membersUnsub = null;
+let usersPanel: HTMLElement | null = null;
+let usersToggle: HTMLButtonElement | null = null;
+let membersUnsub: (() => void) | null = null;
 
-export function initializeUsersPanel() {
+export function initializeUsersPanel(): void {
   try {
     if (document.getElementById('usersToggle')) return; // prevent duplicates
     createUsersUI();
@@ -20,13 +21,13 @@ export function initializeUsersPanel() {
   }
 }
 
-function createUsersUI() {
+function createUsersUI(): void {
   usersToggle = document.createElement('button');
   usersToggle.id = 'usersToggle';
   usersToggle.innerHTML = '👥 Users';
   usersToggle.title = 'Show Participants';
   const pipBtn = document.getElementById('pipToggle') || document.getElementById('hangup');
-  pipBtn.parentNode.insertBefore(usersToggle, pipBtn.nextSibling);
+  pipBtn?.parentNode?.insertBefore(usersToggle, pipBtn.nextSibling);
 
   usersPanel = document.createElement('div');
   usersPanel.className = 'chat-panel';
@@ -46,10 +47,10 @@ function createUsersUI() {
   `;
   document.body.appendChild(usersPanel);
 
-  usersToggle.addEventListener('click', () => usersPanel.classList.toggle('active'));
-  usersPanel.querySelector('#closeUsers').addEventListener('click', () => usersPanel.classList.remove('active'));
-  document.getElementById('setRoom').addEventListener('click', () => {
-    const input = document.getElementById('customRoomName');
+  usersToggle.addEventListener('click', () => usersPanel?.classList.toggle('active'));
+  usersPanel.querySelector('#closeUsers')?.addEventListener('click', () => usersPanel?.classList.remove('active'));
+  document.getElementById('setRoom')?.addEventListener('click', () => {
+    const input = document.getElementById('customRoomName') as HTMLInputElement;
     const value = (input.value || '').trim();
     if (!value) return;
     localStorage.setItem('roomName', value);
@@ -59,14 +60,14 @@ function createUsersUI() {
   });
 }
 
-function renderMembers(members) {
+function renderMembers(members: Member[]): void {
   try {
     const list = document.getElementById('usersList');
     if (!list) return;
     list.innerHTML = '';
     const selfId = JSON.parse(localStorage.getItem('userInfo') || '{}').id;
     members.filter(m => m.id !== undefined && m.id !== null && m.id !== selfId).forEach(member => {
-      const { userInfo = {} } = member;
+      const { userInfo = {} as UserInfo } = member;
       const item = document.createElement('div');
       item.className = 'chat-message';
       const name = userInfo.nickname || 'Unknown';
@@ -91,7 +92,7 @@ function renderMembers(members) {
         const msg = prompt('Send a direct message:');
         if (!msg || !msg.trim()) return;
         try {
-          sendDirectMessage(toId, msg.trim());
+          sendDirectMessage(toId!, msg.trim());
           showToast('Success', 'Message sent');
         } catch (e) {
           showToast('Error', 'Failed to send message');
@@ -123,36 +124,36 @@ function renderMembers(members) {
 }
 
 // ===== Rooms Manager (local only) =====
-function getRooms() {
+function getRooms(): string[] {
   try {
     const raw = localStorage.getItem('rooms_list');
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
 
-function setRooms(arr) {
+function setRooms(arr: string[]): void {
   try { localStorage.setItem('rooms_list', JSON.stringify(arr)); } catch {}
 }
 
-function upsertRoom(name) {
+function upsertRoom(name: string): void {
   const rooms = getRooms();
   if (!rooms.includes(name)) rooms.push(name);
   setRooms(rooms);
 }
 
-function deleteRoom(name) {
+function deleteRoom(name: string): void {
   const rooms = getRooms().filter(r => r !== name);
   setRooms(rooms);
   try { localStorage.removeItem(`rooms_members_${name}`); } catch {}
 }
 
-function clearAllRooms() {
+function clearAllRooms(): void {
   const rooms = getRooms();
   rooms.forEach(r => { try { localStorage.removeItem(`rooms_members_${r}`); } catch {} });
   setRooms([]);
 }
 
-function renderRooms() {
+function renderRooms(): void {
   const container = document.getElementById('roomsList');
   if (!container) return;
   const rooms = getRooms();
@@ -168,7 +169,7 @@ function renderRooms() {
     const row = document.createElement('div');
     row.className = 'chat-message';
     const members = JSON.parse(localStorage.getItem(`rooms_members_${name}`) || '[]');
-    const membersText = members.map(m => m.nickname || m.id).join(', ');
+    const membersText = members.map((m: any) => m.nickname || m.id).join(', ');
     row.innerHTML = `
       <div style="display:flex; align-items:center; gap:6px;">
         <div style="flex:1;">
@@ -197,10 +198,10 @@ function renderRooms() {
   }));
   container.querySelectorAll('.roomEdit').forEach(btn => btn.addEventListener('click', () => {
     const r = btn.getAttribute('data-room');
-    const n = prompt('Rename room', r);
+    const n = prompt('Rename room', r || '');
     if (!n || !n.trim()) return;
     const rooms = getRooms();
-    const idx = rooms.indexOf(r);
+    const idx = rooms.indexOf(r || '');
     if (idx !== -1) rooms[idx] = n.trim();
     setRooms(rooms);
     const snapshot = localStorage.getItem(`rooms_members_${r}`);
@@ -219,21 +220,19 @@ function renderRooms() {
   if (clearBtn) clearBtn.addEventListener('click', () => { if (confirm('Clear all rooms?')) { clearAllRooms(); renderRooms(); }});
 }
 
-export function receiveDirectMessage(messageData, fromUserInfo) {
+export function receiveDirectMessage(messageData: any, fromUserInfo: UserInfo): void {
   const name = fromUserInfo?.nickname || 'Unknown';
   showToast('Info', `DM from ${name}: ${messageData.message}`);
 }
 
-function escapeHtml(text) {
+function escapeHtml(text: string): string {
   const div = document.createElement('div');
   div.textContent = text == null ? '' : String(text);
   return div.innerHTML;
 }
 
-export function destroyUsersPanel() {
+export function destroyUsersPanel(): void {
   try { if (membersUnsub) membersUnsub(); } catch {}
   try { usersToggle?.remove(); } catch {}
   try { usersPanel?.remove(); } catch {}
 }
-
-

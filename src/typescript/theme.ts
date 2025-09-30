@@ -1,5 +1,7 @@
-// theme.js - Theme customization system
-export const themes = {
+import { Theme } from '../types/index.js';
+
+// theme.ts - Theme customization system
+export const themes: Record<string, Theme> = {
   default: {
     name: 'Default',
     colors: {
@@ -43,7 +45,7 @@ export const themes = {
   }
 };
 
-export function applyTheme(themeName) {
+export function applyTheme(themeName: string): void {
   // Backward compatibility: map old 'purple' to 'darkcyan'
   if (themeName === 'purple') themeName = 'darkcyan';
   const theme = themes[themeName];
@@ -58,18 +60,18 @@ export function applyTheme(themeName) {
   localStorage.setItem('selectedTheme', themeName);
 }
 
-export function getCurrentTheme() {
+export function getCurrentTheme(): string {
   const saved = localStorage.getItem('selectedTheme') || 'default';
   return saved === 'purple' ? 'darkcyan' : saved;
 }
 
-export function initializeTheme() {
+export function initializeTheme(): string {
   const savedTheme = getCurrentTheme();
   applyTheme(savedTheme);
   return savedTheme;
 }
 
-export function createThemeSelector() {
+export function createThemeSelector(): HTMLElement {
   const selector = document.createElement('div');
   selector.id = 'themeSelector';
   selector.innerHTML = `
@@ -81,11 +83,12 @@ export function createThemeSelector() {
     </select>
   `;
   
-  const select = selector.querySelector('#themeSelect');
+  const select = selector.querySelector('#themeSelect') as HTMLSelectElement;
   select.value = getCurrentTheme();
   
   select.addEventListener('change', (e) => {
-    applyTheme(e.target.value);
+    const target = e.target as HTMLSelectElement;
+    applyTheme(target.value);
   });
   
   return selector;

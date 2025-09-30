@@ -1,30 +1,30 @@
-// chat.js - Chat functionality for text messaging
+// chat.ts - Chat functionality for text messaging
 import { showToast } from './toast.js';
+import { MessageData, ReactionPayload, Attachment } from '../types/index.js';
 
-let chatMessages = [];
-let chatPanel = null;
-let chatToggle = null;
-let chatEditor = null;
-let fileInput = null;
-let replyContext = null;
-let currentReplyTo = null; // message id being replied to
-let emojiMenu = null;
+let chatMessages: MessageData[] = [];
+let chatPanel: HTMLElement | null = null;
+let chatToggle: HTMLButtonElement | null = null;
+let chatEditor: HTMLElement | null = null;
+let fileInput: HTMLInputElement | null = null;
+let replyContext: HTMLElement | null = null;
+let currentReplyTo: number | null = null; // message id being replied to
+let emojiMenu: HTMLElement | null = null;
 
-export function initializeChat() {
+export function initializeChat(): void {
   createChatUI();
   setupChatEventListeners();
   loadChatHistory();
 }
 
-function createChatUI() {
+function createChatUI(): void {
   // Create chat toggle button
   chatToggle = document.createElement('button');
   chatToggle.id = 'chatToggle';
   chatToggle.innerHTML = '💬 Chat';
   chatToggle.title = 'Toggle Chat';
   const switchCamera = document.getElementById("switchCamera");
-  switchCamera.parentNode.insertBefore(chatToggle, switchCamera.nextSibling);
-
+  switchCamera?.parentNode?.insertBefore(chatToggle, switchCamera.nextSibling);
 
   // Create chat panel
   chatPanel = document.createElement('div');
@@ -59,30 +59,30 @@ function createChatUI() {
   `;
   document.body.appendChild(chatPanel);
   chatEditor = chatPanel.querySelector('#chatEditor');
-  fileInput = chatPanel.querySelector('#fileInput');
+  fileInput = chatPanel.querySelector('#fileInput') as HTMLInputElement;
   replyContext = chatPanel.querySelector('#replyContext');
   emojiMenu = chatPanel.querySelector('#emojiMenu');
 }
 
-function setupChatEventListeners() {
+function setupChatEventListeners(): void {
   // Toggle chat panel
-  chatToggle.addEventListener('click', () => {
-    chatPanel.classList.toggle('active');
-    if (chatPanel.classList.contains('active')) {
-      chatEditor.focus();
+  chatToggle?.addEventListener('click', () => {
+    chatPanel?.classList.toggle('active');
+    if (chatPanel?.classList.contains('active')) {
+      (chatEditor as HTMLElement)?.focus();
     }
   });
 
   // Close chat panel
-  document.getElementById('closeChat').addEventListener('click', () => {
-    chatPanel.classList.remove('active');
+  document.getElementById('closeChat')?.addEventListener('click', () => {
+    chatPanel?.classList.remove('active');
   });
 
   // Send message
   const sendButton = document.getElementById('sendMessage');
 
-  sendButton.addEventListener('click', sendMessage);
-  chatEditor.addEventListener('keypress', (e) => {
+  sendButton?.addEventListener('click', sendMessage);
+  chatEditor?.addEventListener('keypress', (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
       if (!e.shiftKey) {
         e.preventDefault();
@@ -93,20 +93,22 @@ function setupChatEventListeners() {
 
   // Auto-scroll to bottom when new messages arrive
   const chatMessagesContainer = document.getElementById('chatMessages');
-  chatMessagesContainer.addEventListener('DOMNodeInserted', () => {
-    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+  chatMessagesContainer?.addEventListener('DOMNodeInserted', () => {
+    if (chatMessagesContainer) {
+      chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+    }
   });
 
   // Rich text toolbar
-  document.getElementById('btnBold').addEventListener('click', () => execCmd('bold'));
-  document.getElementById('btnItalic').addEventListener('click', () => execCmd('italic'));
-  document.getElementById('btnAttach').addEventListener('click', () => fileInput.click());
-  document.getElementById('btnEmoji').addEventListener('click', toggleEmojiMenu);
-  fileInput.addEventListener('change', handleFileSelection);
+  document.getElementById('btnBold')?.addEventListener('click', () => execCmd('bold'));
+  document.getElementById('btnItalic')?.addEventListener('click', () => execCmd('italic'));
+  document.getElementById('btnAttach')?.addEventListener('click', () => fileInput?.click());
+  document.getElementById('btnEmoji')?.addEventListener('click', toggleEmojiMenu);
+  fileInput?.addEventListener('change', handleFileSelection);
 }
 
-async function sendMessage() {
-  const rawHtml = (chatEditor.innerHTML || '').trim();
+async function sendMessage(): Promise<void> {
+  const rawHtml = (chatEditor?.innerHTML || '').trim();
   const hasText = stripHtml(rawHtml).trim().length > 0;
   let attachments = await collectPendingAttachments();
   // Attempt to compress image attachments to fit signalling limits
@@ -116,7 +118,7 @@ async function sendMessage() {
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
   const senderName = userInfo.nickname || 'Anonymous';
   const sanitizedHtml = sanitizeHtml(rawHtml);
-  const messageData = {
+  const messageData: MessageData = {
     id: Date.now(),
     type: 'message',
     sender: senderName,
@@ -142,11 +144,11 @@ async function sendMessage() {
   clearComposer();
 }
 
-function addMessageToChat(messageData, isOwn = false) {
+function addMessageToChat(messageData: MessageData, isOwn = false): void {
   const chatMessagesContainer = document.getElementById('chatMessages');
   const messageElement = document.createElement('div');
   messageElement.className = `chat-message ${isOwn ? 'own' : ''}`;
-  messageElement.setAttribute('data-id', messageData.id);
+  messageElement.setAttribute('data-id', messageData.id.toString());
 
   const time = new Date(messageData.timestamp).toLocaleTimeString();
 
@@ -184,10 +186,12 @@ function addMessageToChat(messageData, isOwn = false) {
   // Reaction-only updates will be applied via updateMessageReactions
   if (contentHtml) messageElement.innerHTML = contentHtml;
 
-  chatMessagesContainer.appendChild(messageElement);
+  chatMessagesContainer?.appendChild(messageElement);
 
   // Auto-scroll to bottom
-  chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+  if (chatMessagesContainer) {
+    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+  }
 
   // Store message
   chatMessages.push(messageData);
@@ -201,7 +205,7 @@ function addMessageToChat(messageData, isOwn = false) {
   wireMessageActions(messageElement, messageData);
 }
 
-function sendChatMessage(messageData) {
+function sendChatMessage(messageData: MessageData): void {
   // Import drone from room.js dynamically to avoid circular dependency
   import('./room.js').then(({ drone }) => {
     if (drone && drone.rooms) {
@@ -224,25 +228,25 @@ function sendChatMessage(messageData) {
   });
 }
 
-export function receiveChatMessage(messageData) {
+export function receiveChatMessage(messageData: MessageData): void {
   // Called when receiving a chat message from another participant
   if (messageData.type === 'reaction') {
-    applyIncomingReaction(messageData);
+    applyIncomingReaction(messageData as any);
     return;
   }
   addMessageToChat(messageData, false);
   persistChatMessage(messageData);
 }
 
-export function sendDirectMessage(toMemberId, message) {
+export function sendDirectMessage(toMemberId: string, message: string): void {
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-  const messageData = {
+  const messageData: MessageData = {
     id: Date.now(),
     sender: userInfo.nickname || 'Anonymous',
     senderId: userInfo.id || 'unknown',
-    message,
+    text: message,
     timestamp: new Date().toISOString(),
-    to: toMemberId
+    type: 'message'
   };
 
   // Add to local chat with receiver indicated
@@ -266,7 +270,7 @@ export function sendDirectMessage(toMemberId, message) {
   }).catch(() => {});
 }
 
-function escapeHtml(text) {
+function escapeHtml(text: string): string {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
@@ -277,12 +281,12 @@ export { addMessageToChat, sendChatMessage };
 
 // ===== Advanced Chat Helpers =====
 
-function execCmd(cmd) {
-  chatEditor.focus();
-  document.execCommand(cmd, false, null);
+function execCmd(cmd: string): void {
+  (chatEditor as HTMLElement)?.focus();
+  document.execCommand(cmd, false, undefined);
 }
 
-function toggleEmojiMenu(e) {
+function toggleEmojiMenu(e?: Event): void {
   if (!emojiMenu) return;
   if (emojiMenu.style.display === 'none' || !emojiMenu.style.display) {
     emojiMenu.style.display = 'grid';
@@ -290,16 +294,16 @@ function toggleEmojiMenu(e) {
     emojiMenu.innerHTML = ['😀','😂','😍','👍','🙏','🎉','🔥','😮','😢','😆','😎','❤️']
       .map(em => `<button class="emojiPick" style="padding:4px; background:none; border:none; font-size:20px;">${em}</button>`)
       .join('');
-    const rect = e?.target?.getBoundingClientRect?.();
+    const rect = (e?.target as HTMLElement)?.getBoundingClientRect?.();
     if (rect) {
       emojiMenu.style.top = `${rect.bottom + window.scrollY + 6}px`;
       emojiMenu.style.left = `${rect.left + window.scrollX}px`;
     }
     emojiMenu.querySelectorAll('.emojiPick').forEach(btn => {
       btn.addEventListener('click', () => {
-        insertAtCursor(btn.textContent);
-        emojiMenu.style.display = 'none';
-        chatEditor.focus();
+        insertAtCursor(btn.textContent || '');
+        emojiMenu!.style.display = 'none';
+        (chatEditor as HTMLElement)?.focus();
       });
     });
   } else {
@@ -307,26 +311,26 @@ function toggleEmojiMenu(e) {
   }
 }
 
-function insertAtCursor(text) {
-  chatEditor.focus();
+function insertAtCursor(text: string): void {
+  (chatEditor as HTMLElement)?.focus();
   document.execCommand('insertText', false, text);
 }
 
-function stripHtml(html) {
+function stripHtml(html: string): string {
   const tmp = document.createElement('div');
   tmp.innerHTML = html || '';
   return tmp.textContent || tmp.innerText || '';
 }
 
-function sanitizeHtml(html) {
+function sanitizeHtml(html: string): string {
   if (!html) return '';
   const allowed = new Set(['B','STRONG','I','EM','BR','SPAN','A']);
   const container = document.createElement('div');
   container.innerHTML = html;
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null);
-  const toRemove = [];
+  const toRemove: Element[] = [];
   while (walker.nextNode()) {
-    const el = walker.currentNode;
+    const el = walker.currentNode as Element;
     if (!allowed.has(el.nodeName)) {
       toRemove.push(el);
       continue;
@@ -347,14 +351,15 @@ function sanitizeHtml(html) {
   return container.innerHTML;
 }
 
-function estimateSize(obj) {
+function estimateSize(obj: any): number {
   try { return JSON.stringify(obj).length; } catch { return 0; }
 }
 
 // File sharing
-let pendingFiles = [];
-function handleFileSelection(e) {
-  const files = Array.from(e.target.files || []);
+let pendingFiles: File[] = [];
+function handleFileSelection(e: Event): void {
+  const target = e.target as HTMLInputElement;
+  const files = Array.from(target.files || []);
   const maxSize = 5 * 1024 * 1024; // 5MB per file
   files.forEach(file => {
     if (file.size > maxSize) {
@@ -364,30 +369,30 @@ function handleFileSelection(e) {
     pendingFiles.push(file);
   });
   // Show small hint in replyContext
-  if (pendingFiles.length) {
+  if (pendingFiles.length && replyContext) {
     replyContext.style.display = '';
     replyContext.textContent = `${pendingFiles.length} attachment(s) selected`;
   }
 }
 
-function collectPendingAttachments() {
+function collectPendingAttachments(): Promise<Attachment[]> {
   if (!pendingFiles.length) return Promise.resolve([]);
-  const tasks = pendingFiles.map(file => new Promise(resolve => {
+  const tasks = pendingFiles.map(file => new Promise<Attachment | null>(resolve => {
     const reader = new FileReader();
     reader.onload = () => resolve({
       name: file.name,
       type: file.type,
       size: file.size,
-      dataUrl: reader.result
+      dataUrl: reader.result as string
     });
     reader.onerror = () => resolve(null);
     reader.readAsDataURL(file);
   }));
-  return Promise.all(tasks).then(arr => arr.filter(Boolean));
+  return Promise.all(tasks).then(arr => arr.filter(Boolean) as Attachment[]);
 }
 
-async function maybeCompressAttachments(attList) {
-  const result = [];
+async function maybeCompressAttachments(attList: Attachment[]): Promise<Attachment[]> {
+  const result: Attachment[] = [];
   for (const att of attList) {
     if ((att.type || '').startsWith('image/') && typeof att.dataUrl === 'string') {
       try {
@@ -403,7 +408,7 @@ async function maybeCompressAttachments(attList) {
   return result;
 }
 
-function compressImageDataUrl(dataUrl, maxW = 900, maxH = 900, quality = 0.7) {
+function compressImageDataUrl(dataUrl: string, maxW = 900, maxH = 900, quality = 0.7): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -414,18 +419,22 @@ function compressImageDataUrl(dataUrl, maxW = 900, maxH = 900, quality = 0.7) {
       const canvas = document.createElement('canvas');
       canvas.width = cw; canvas.height = ch;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, cw, ch);
-      try {
-        const out = canvas.toDataURL('image/jpeg', quality);
-        resolve(out);
-      } catch (e) { resolve(dataUrl); }
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, cw, ch);
+        try {
+          const out = canvas.toDataURL('image/jpeg', quality);
+          resolve(out);
+        } catch (e) { resolve(dataUrl); }
+      } else {
+        resolve(dataUrl);
+      }
     };
     img.onerror = reject;
     img.src = dataUrl;
   });
 }
 
-function renderAttachment(att) {
+function renderAttachment(att: Attachment): string {
   const safeName = escapeHtml(att.name || 'file');
   if ((att.type || '').startsWith('image/')) {
     return `<div style="margin-top:6px;"><img src="${att.dataUrl}" alt="${safeName}" style="max-width:200px; border-radius:6px;" /></div>`;
@@ -433,64 +442,76 @@ function renderAttachment(att) {
   return `<div style="margin-top:6px;"><a href="${att.dataUrl}" download="${safeName}">📎 ${safeName}</a></div>`;
 }
 
-function clearComposer() {
-  chatEditor.innerHTML = '';
+function clearComposer(): void {
+  if (chatEditor) chatEditor.innerHTML = '';
   pendingFiles = [];
   currentReplyTo = null;
-  replyContext.style.display = 'none';
-  replyContext.textContent = '';
-  fileInput.value = '';
+  if (replyContext) {
+    replyContext.style.display = 'none';
+    replyContext.textContent = '';
+  }
+  if (fileInput) fileInput.value = '';
 }
 
-function wireMessageActions(messageElement, messageData) {
+function wireMessageActions(messageElement: HTMLElement, messageData: MessageData): void {
   const replyBtn = messageElement.querySelector('.replyBtn');
   const reactBtns = messageElement.querySelectorAll('.reactBtn');
   if (replyBtn) {
     replyBtn.addEventListener('click', () => {
       currentReplyTo = messageData.id;
-      replyContext.style.display = '';
-      replyContext.textContent = `Replying to ${messageData.sender}: ${(messageData.text||'').slice(0,80)}`;
-      chatEditor.focus();
+      if (replyContext) {
+        replyContext.style.display = '';
+        replyContext.textContent = `Replying to ${messageData.sender}: ${(messageData.text||'').slice(0,80)}`;
+      }
+      (chatEditor as HTMLElement)?.focus();
     });
   }
   reactBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const emoji = btn.getAttribute('data-emoji');
-      addReaction(messageData.id, emoji);
+      if (emoji) addReaction(messageData.id, emoji);
     });
   });
   updateReactionsDisplay(messageElement, messageData.reactions || {});
 }
 
-function addReaction(messageId, emoji) {
+function addReaction(messageId: number, emoji: string): void {
   const user = JSON.parse(localStorage.getItem('userInfo')||'{}');
-  const payload = { id: Date.now(), type: 'reaction', messageId, emoji, userId: user.id, userName: user.nickname, timestamp: new Date().toISOString() };
+  const payload: ReactionPayload = { 
+    id: Date.now(), 
+    type: 'reaction', 
+    messageId, 
+    emoji, 
+    userId: user.id, 
+    userName: user.nickname, 
+    timestamp: new Date().toISOString() 
+  };
   // Update local
   applyIncomingReaction(payload);
   // Broadcast
-  sendChatMessage(payload);
+  sendChatMessage(payload as any);
 }
 
-function applyIncomingReaction(payload) {
+function applyIncomingReaction(payload: ReactionPayload): void {
   const idx = chatMessages.findIndex(m => m.id === payload.messageId);
   if (idx === -1) return;
   const msg = chatMessages[idx];
   if (!msg.reactions) msg.reactions = {};
   const key = payload.emoji;
   if (!msg.reactions[key]) msg.reactions[key] = new Set();
-  if (Array.isArray(msg.reactions[key])) msg.reactions[key] = new Set(msg.reactions[key]);
-  msg.reactions[key].add(payload.userId || 'unknown');
+  if (Array.isArray(msg.reactions[key])) msg.reactions[key] = new Set(msg.reactions[key] as string[]);
+  (msg.reactions[key] as Set<string>).add(payload.userId || 'unknown');
   // Update UI
   const el = document.querySelector(`.chat-message[data-id="${msg.id}"]`);
-  if (el) updateReactionsDisplay(el, msg.reactions);
+  if (el) updateReactionsDisplay(el as HTMLElement, msg.reactions);
   // Persist updated message
   persistReplaceMessage(msg);
 }
 
-function updateReactionsDisplay(messageElement, reactions) {
+function updateReactionsDisplay(messageElement: HTMLElement, reactions: Record<string, Set<string> | string[]>): void {
   const disp = messageElement.querySelector('.reactionsDisplay');
   if (!disp) return;
-  const parts = [];
+  const parts: string[] = [];
   Object.keys(reactions || {}).forEach(k => {
     const v = reactions[k];
     const count = v instanceof Set ? v.size : (Array.isArray(v) ? v.length : 0);
@@ -500,20 +521,20 @@ function updateReactionsDisplay(messageElement, reactions) {
 }
 
 // Persistence per room
-function getRoomKey() {
+function getRoomKey(): string {
   const room = localStorage.getItem('roomName') || 'observable-e7b2d4';
   return `chat_history_${room}`;
 }
 
-function loadChatHistory() {
+function loadChatHistory(): void {
   try {
     const raw = localStorage.getItem(getRoomKey());
     if (!raw) return;
     const arr = JSON.parse(raw);
-    (arr || []).forEach(msg => {
+    (arr || []).forEach((msg: any) => {
       // Convert reactions arrays back to Sets for UI use
       if (msg.reactions) {
-        Object.keys(msg.reactions).forEach(k => {
+        Object.keys(msg.reactions).forEach((k: string) => {
           if (Array.isArray(msg.reactions[k])) msg.reactions[k] = new Set(msg.reactions[k]);
         });
       }
@@ -522,7 +543,7 @@ function loadChatHistory() {
   } catch {}
 }
 
-function persistChatMessage(message) {
+function persistChatMessage(message: MessageData): void {
   try {
     const raw = localStorage.getItem(getRoomKey());
     const arr = raw ? JSON.parse(raw) : [];
@@ -531,20 +552,20 @@ function persistChatMessage(message) {
   } catch {}
 }
 
-function persistReplaceMessage(message) {
+function persistReplaceMessage(message: MessageData): void {
   try {
     const raw = localStorage.getItem(getRoomKey());
     const arr = raw ? JSON.parse(raw) : [];
-    const idx = arr.findIndex(m => m.id === message.id);
+    const idx = arr.findIndex((m: any) => m.id === message.id);
     if (idx !== -1) arr[idx] = serializeMessage(message);
     localStorage.setItem(getRoomKey(), JSON.stringify(arr));
   } catch {}
 }
 
-function serializeMessage(message) {
+function serializeMessage(message: MessageData): any {
   const clone = JSON.parse(JSON.stringify(message));
   if (clone.reactions) {
-    Object.keys(clone.reactions).forEach(k => {
+    Object.keys(clone.reactions).forEach((k: string) => {
       if (clone.reactions[k] instanceof Set) clone.reactions[k] = Array.from(clone.reactions[k]);
     });
   }

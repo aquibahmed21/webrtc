@@ -1,5 +1,5 @@
 // Function to create and display toast message
-export function showToast(type, message) {
+export function showToast(type: string, message: string | object): void {
   try {
     let toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {

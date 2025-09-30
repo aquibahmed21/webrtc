@@ -1,24 +1,24 @@
-// room.js
 import { createScaledrone } from './signalling.js';
 import { createOfferWithPreferredCodec } from './media.js';
 import { showToast } from './toast.js';
 import { receiveChatMessage } from './chat.js';
+import { UserInfo, Member, ConnectionStatus, SignallingRef, PeerConnectionInfo, CandidateQueue } from '../types/index.js';
 
-const membersList = [];
-const memberSubscribers = new Set();
-const userInfo = JSON.parse(window.localStorage.getItem('userInfo'));
+const membersList: Member[] = [];
+const memberSubscribers = new Set<(members: Member[]) => void>();
+const userInfo: UserInfo = JSON.parse(window.localStorage.getItem('userInfo') || '{}');
 
-const peerConnections = {};
-const candidateQueues = {}; // queue ICE candidates until remoteDescription is set
-let localStream;
-export let pcInfo = null;
-export let drone = null;
-export let room = null;
-let signallingRef = null;
+const peerConnections: PeerConnectionInfo = {};
+const candidateQueues: CandidateQueue = {}; // queue ICE candidates until remoteDescription is set
+let localStream: MediaStream | null = null;
+export let pcInfo: RTCPeerConnection | null = null;
+export let drone: any = null;
+export let room: any = null;
+let signallingRef: SignallingRef | null = null;
 
-export const connectionStatus = {
+export const connectionStatus: ConnectionStatus = {
   onChange: null, // function(status: 'connected'|'reconnecting'|'disconnected')
-  set(status) {
+  set(status: 'connected' | 'reconnecting' | 'disconnected') {
     if (typeof this.onChange === 'function') this.onChange(status);
   }
 };
@@ -43,17 +43,17 @@ export const connectionStatus = {
 //   }
 // ];
 
-const iceServers = [
+const iceServers: RTCIceServer[] = [
   { urls: ["stun:stun.l.google.com:19302"] },
   {
-    urls:
-      ["turn:122.166.150.147:5060?transport=tcp"],
-    "username": "test", "credential": "pa55w0rd!"
+    urls: ["turn:122.166.150.147:5060?transport=tcp"],
+    "username": "test", 
+    "credential": "pa55w0rd!"
   }
 ];
-const configuration = { iceServers };
+const configuration: RTCConfiguration = { iceServers };
 
-export function setupRoom(localStreamRef, onRemoteTrack) {
+export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: MediaStream, id: string, name: string) => void): void {
   localStream = localStreamRef;
   const ROOM_NAME = (localStorage.getItem('roomName') || 'observable-e7b2d4');
   signallingRef = createScaledrone(ROOM_NAME, handleOpen, handleMessage);
@@ -71,13 +71,12 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     connectionStatus.set('disconnected');
   });
 
-
-  function handleOpen(error) {
+  function handleOpen(error?: any): void {
     if (error) return console.error(error);
 
     // refresh current signalling instances
-    drone = signallingRef.drone;
-    room = signallingRef.room;
+    drone = signallingRef!.drone;
+    room = signallingRef!.room;
 
     // re-bind room events each time we (re)connect
     bindRoomEvents(onRemoteTrack);
@@ -89,7 +88,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     console.log('Connected to Scaledrone');
   }
 
-  function enqueueOrAddCandidate(id, candidate) {
+  function enqueueOrAddCandidate(id: string, candidate: RTCIceCandidateInit): void {
     if (!candidateQueues[id]) candidateQueues[id] = [];
     const pc = peerConnections[id];
     if (pc && pc.remoteDescription && pc.remoteDescription.type) {
@@ -104,12 +103,12 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     }
   }
 
-  async function drainCandidateQueue(id) {
+  async function drainCandidateQueue(id: string): Promise<void> {
     const pc = peerConnections[id];
     if (!pc || !pc.remoteDescription || !candidateQueues[id] || candidateQueues[id].length === 0) return;
     const queue = candidateQueues[id];
     while (queue.length) {
-      const cand = queue.shift();
+      const cand = queue.shift()!;
       try {
         await pc.addIceCandidate(new RTCIceCandidate(cand));
       } catch (e) {
@@ -118,7 +117,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     }
   }
 
-  function handleMessage(message) {
+  function handleMessage(message: any): void {
     const { data } = message || {};
     const member = message?.member || {};
     const senderId = message?.member?.id;
@@ -126,7 +125,6 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     if (!drone) return;
     if (!senderId || senderId === drone.clientId) return;
-
 
     switch (data.type) {
       case 'offer':
@@ -161,14 +159,12 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
         const index = membersList.findIndex(memberObj => member.id === memberObj.id);
         // Remove video from DOM
         const videoEl = document.getElementById(senderId);
-        if (videoEl)
-        {
-          videoEl.parentElement.remove();
+        if (videoEl) {
+          videoEl.parentElement?.remove();
           if (index > -1)
-            showToast('Info', membersList[index].clientData.userInfo.nickname + ' has left the room!');
+            showToast('Info', membersList[index].userInfo?.nickname + ' has left the room!');
         }
         membersList.splice(index, 1);
-
 
         // Close and delete the peer connection
         if (peerConnections[senderId]) {
@@ -217,7 +213,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
       case 'invite':
         try {
           if (data.to === drone.clientId && data.roomName) {
-            const inviter = membersList.find(m => m.id === senderId)?.clientData?.userInfo?.nickname || 'Someone';
+            const inviter = membersList.find(m => m.id === senderId)?.userInfo?.nickname || 'Someone';
             const join = confirm(`${inviter} invited you to join room "${data.roomName}". Join now?`);
             if (join) {
               localStorage.setItem('roomName', data.roomName);
@@ -235,10 +231,10 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     }
   }
 
-  function bindRoomEvents(onRemoteTrackCb) {
+  function bindRoomEvents(onRemoteTrackCb: (stream: MediaStream, id: string, name: string) => void): void {
     if (!room) return;
 
-    room.on('members', members => {
+    room.on('members', (members: any[]) => {
       console.log('Members connected:', members);
 
       members.forEach(member => {
@@ -253,7 +249,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
       notifyMemberSubscribers();
     });
 
-    room.on('member_join', member => {
+    room.on('member_join', (member: any) => {
       if (!membersList.find(m => m.id === member.id)) membersList.push(member);
       console.log('Member joined:', member.clientData?.userInfo.nickname);
       // If connection already exists due to reconnect, skip creating
@@ -263,14 +259,14 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
       notifyMemberSubscribers();
     });
 
-    room.on('member_leave', memberObj => {
-      const index = membersList .findIndex(member => member.id === memberObj.id);
-      console.log('Member left:', membersList[index]?.clientData?.userInfo?.nickname);
+    room.on('member_leave', (memberObj: any) => {
+      const index = membersList.findIndex(member => member.id === memberObj.id);
+      console.log('Member left:', membersList[index]?.userInfo?.nickname);
       const videoEl = document.getElementById(memberObj.id);
       if (videoEl) {
-        videoEl.parentElement.remove();
+        videoEl.parentElement?.remove();
         if (index > -1)
-          showToast('Info', membersList[index].clientData.userInfo.nickname + ' has left the room!');
+          showToast('Info', membersList[index].userInfo?.nickname + ' has left the room!');
       }
       membersList.splice(index, 1);
       if (peerConnections[memberObj.id]) {
@@ -282,7 +278,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     });
   }
 
-  async function createPeerConnection(id, isInitiator, onRemoteTrack) {
+  async function createPeerConnection(id: string, isInitiator: boolean, onRemoteTrack: (stream: MediaStream, id: string, name: string) => void): Promise<void> {
     // if we already have a live connection, do not recreate
     if (peerConnections[id] && peerConnections[id].connectionState && peerConnections[id].connectionState !== 'closed') {
       return;
@@ -292,10 +288,10 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
 
     // Attach local tracks to new connection
     if (localStream)
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream!));
 
     // Log when ICE candidates are gathered
-    pc.onicecandidate = event => {
+    pc.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
       if (event.candidate) {
         // console.log("New ICE Candidate:", event.candidate);
         drone.publish({ room: ROOM_NAME,
@@ -349,13 +345,12 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     };
 
     // Log when tracks are added
-    pc.ontrack = event => {
+    pc.ontrack = (event: RTCTrackEvent) => {
       // console.log("Track received:", event.track.kind);
-      onRemoteTrack(event.streams[0], id, membersList.find(member => member.id === id)?.clientData?.userInfo?.nickname || '');
+      onRemoteTrack(event.streams[0], id, membersList.find(member => member.id === id)?.userInfo?.nickname || '');
       const index = membersList.findIndex(member => member.id === id);
       if (index > -1)
-        showToast('Info', membersList[index].clientData.userInfo.nickname + ' has joined the room!');
-
+        showToast('Info', membersList[index].userInfo?.nickname + ' has joined the room!');
     };
 
     if (isInitiator) {
@@ -368,7 +363,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     peerConnections[id] = pc;
   }
 
-  async function attemptIceRestart(pc, id, roomName) {
+  async function attemptIceRestart(pc: RTCPeerConnection, id: string, roomName: string): Promise<void> {
     try {
       const offer = await pc.createOffer({ iceRestart: true });
       await pc.setLocalDescription(offer);
@@ -380,7 +375,7 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
     }
   }
 
-  function attemptReconnect(onRemoteTrackCb) {
+  function attemptReconnect(onRemoteTrackCb: (stream: MediaStream, id: string, name: string) => void): void {
     try {
       // Close and drop existing peer connections
       Object.keys(peerConnections).forEach(peerId => {
@@ -405,20 +400,20 @@ export function setupRoom(localStreamRef, onRemoteTrack) {
   }
 }
 
-export function getPeerConnections() {
+export function getPeerConnections(): PeerConnectionInfo {
   return peerConnections;
 }
 
-export function getPeerName(peerId) {
+export function getPeerName(peerId: string): string {
   try {
     if (!peerId) return '';
     const m = membersList.find(x => x?.id === peerId);
-    return m?.clientData?.userInfo?.nickname || '';
+    return m?.userInfo?.nickname || '';
   } catch { return ''; }
 }
 
 // Publish updates to subscribers when member list changes
-function notifyMemberSubscribers() {
+function notifyMemberSubscribers(): void {
   try {
     memberSubscribers.forEach(cb => {
       try { cb(getMembers()); } catch {}
@@ -432,7 +427,7 @@ function notifyMemberSubscribers() {
   } catch {}
 }
 
-export function subscribeMembers(callback) {
+export function subscribeMembers(callback: (members: Member[]) => void): () => void {
   if (typeof callback === 'function') {
     memberSubscribers.add(callback);
     // immediate push
@@ -442,14 +437,14 @@ export function subscribeMembers(callback) {
   return () => {};
 }
 
-export function getMembers() {
+export function getMembers(): Member[] {
   return membersList.filter(m => !!m && m.id !== (drone?.clientId)).map(m => ({
     id: m.id,
-    userInfo: m.clientData?.userInfo || {}
+    userInfo: m.userInfo || {} as UserInfo
   }));
 }
 
-export function manualReconnect() {
+export function manualReconnect(): void {
   // Allows UI to trigger a reconnection attempt
   const localVideo = document.getElementById('localVideo');
   const hasLocalStream = !!localVideo;
@@ -462,4 +457,27 @@ export function manualReconnect() {
   } else {
     showToast('Warning', 'Start the call first to reconnect.');
   }
+}
+
+export function destroyConnections(): void {
+  try {
+    // Close all peer connections
+    Object.keys(peerConnections).forEach(peerId => {
+      try {
+        if (peerConnections[peerId]) {
+          peerConnections[peerId].close();
+          delete peerConnections[peerId];
+        }
+      } catch {}
+    });
+    // Clear candidate queues and members
+    Object.keys(candidateQueues).forEach(id => delete candidateQueues[id]);
+    try { membersList.splice(0, membersList.length); } catch {}
+    // Reset references
+    pcInfo = null;
+    // Attempt to close signalling
+    try { if (drone && typeof drone.close === 'function') drone.close(); } catch {}
+    drone = null;
+    room = null;
+  } catch {}
 }

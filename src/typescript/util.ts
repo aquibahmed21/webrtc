@@ -1,4 +1,4 @@
-export function urlBase64ToUint8Array(base64String) {
+export function urlBase64ToUint8Array(base64String: string): Uint8Array {
   try {
     if (!base64String || typeof base64String !== 'string') {
       return new Uint8Array();

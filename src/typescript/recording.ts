@@ -1,18 +1,18 @@
 import { showToast } from "./toast.js";
 
-let mediaRecorder = null;
-let recordedChunks = [];
-let screenStream = null;
-let micStream = null;
-let mixedStream = null;
+let mediaRecorder: MediaRecorder | null = null;
+let recordedChunks: Blob[] = [];
+let screenStream: MediaStream | null = null;
+let micStream: MediaStream | null = null;
+let mixedStream: MediaStream | null = null;
 
-const startRecordingBtn = document.getElementById('startRecording');
-const stopRecordingBtn = document.getElementById('stopRecording');
-const downloadLink = document.getElementById('downloadRecording');
-const screenVideo = document.getElementById('screenVideo');
+const startRecordingBtn = document.getElementById('startRecording') as HTMLButtonElement;
+const stopRecordingBtn = document.getElementById('stopRecording') as HTMLButtonElement;
+const downloadLink = document.getElementById('downloadRecording') as HTMLAnchorElement;
+const screenVideo = document.getElementById('screenVideo') as HTMLVideoElement;
 
 // Start Recording
-startRecordingBtn.addEventListener('click', async () => {
+startRecordingBtn?.addEventListener('click', async () => {
   try {
     startRecordingBtn.disabled = true;
 
@@ -55,7 +55,7 @@ startRecordingBtn.addEventListener('click', async () => {
       audioBitsPerSecond: 320_000
     });
 
-    mediaRecorder.ondataavailable = event => {
+    mediaRecorder.ondataavailable = (event: BlobEvent) => {
       if (event.data && event.data.size > 0) {
         recordedChunks.push(event.data);
       }
@@ -65,17 +65,17 @@ startRecordingBtn.addEventListener('click', async () => {
 
     mediaRecorder.start(250); // gather chunks every 250ms
 
-    stopRecordingBtn.disabled = false;
+    if (stopRecordingBtn) stopRecordingBtn.disabled = false;
   } catch (err) {
     console.error('Error during recording setup:', err);
     showToast('Error', 'Error during recording setup!');
-    startRecordingBtn.disabled = false;
+    if (startRecordingBtn) startRecordingBtn.disabled = false;
     cleanupStreams();
   }
 });
 
 // Stop Recording
-stopRecordingBtn.addEventListener('click', () => {
+stopRecordingBtn?.addEventListener('click', () => {
   try {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
@@ -83,14 +83,14 @@ stopRecordingBtn.addEventListener('click', () => {
   } catch (e) {
     console.error('Failed stopping MediaRecorder:', e);
   } finally {
-    stopRecordingBtn.disabled = true;
-    startRecordingBtn.disabled = false;
+    if (stopRecordingBtn) stopRecordingBtn.disabled = true;
+    if (startRecordingBtn) startRecordingBtn.disabled = false;
     cleanupStreams();
   }
 });
 
 // Merge Audio Tracks
-function mergeAudioTracks(screenStreamParam, micStreamParam) {
+function mergeAudioTracks(screenStreamParam: MediaStream, micStreamParam: MediaStream): MediaStreamTrack[] {
   const context = new AudioContext();
   const destination = context.createMediaStreamDestination();
 
@@ -111,7 +111,7 @@ function mergeAudioTracks(screenStreamParam, micStreamParam) {
 }
 
 // Save Recording
-function saveRecording() {
+function saveRecording(): void {
   try {
     if (!recordedChunks.length) {
       showToast('Warning', 'No recorded data available');
@@ -129,7 +129,7 @@ function saveRecording() {
   }
 }
 
-function cleanupStreams() {
+function cleanupStreams(): void {
   try {
     if (screenStream) {
       screenStream.getTracks().forEach(track => track.stop());

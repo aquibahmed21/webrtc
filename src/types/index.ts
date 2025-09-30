@@ -1,0 +1,87 @@
+// Global type definitions for the WebRTC project
+
+export interface UserInfo {
+  id: number;
+  nickname: string;
+  gender: 'male' | 'female';
+  status?: string;
+  age?: number;
+}
+
+export interface MessageData {
+  id: number;
+  type: 'message' | 'reaction';
+  sender: string;
+  senderId: string;
+  html?: string;
+  text: string;
+  timestamp: string;
+  replyTo?: number | null;
+  attachments?: Attachment[];
+  reactions?: Record<string, Set<string> | string[]>;
+}
+
+export interface Attachment {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+}
+
+export interface ReactionPayload {
+  id: number;
+  type: 'reaction';
+  messageId: number;
+  emoji: string;
+  userId: string;
+  userName: string;
+  timestamp: string;
+}
+
+export interface Member {
+  id: string;
+  userInfo: UserInfo;
+}
+
+export interface Theme {
+  name: string;
+  colors: Record<string, string>;
+}
+
+export interface DeviceInfo {
+  deviceId: string;
+  label: string;
+  kind: MediaDeviceKind;
+}
+
+export interface SelectedDevices {
+  videoDeviceId: string | null;
+  audioDeviceId: string | null;
+}
+
+export interface ConnectionStatus {
+  onChange: ((status: 'connected' | 'reconnecting' | 'disconnected') => void) | null;
+  set: (status: 'connected' | 'reconnecting' | 'disconnected') => void;
+}
+
+export interface SignallingRef {
+  drone: any; // ScaleDrone instance
+  room: any; // ScaleDrone room
+}
+
+export interface PeerConnectionInfo {
+  [key: string]: RTCPeerConnection;
+}
+
+export interface CandidateQueue {
+  [key: string]: RTCIceCandidateInit[];
+}
+
+// Global declarations for external libraries
+declare global {
+  interface Window {
+    ScaleDrone: any;
+  }
+}
+
+export {};
