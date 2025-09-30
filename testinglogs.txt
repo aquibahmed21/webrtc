@@ -1,0 +1,10 @@
+Scaledrone error: Error: Connection has exceeded the 20 messages per second publishing limit
+    at exports.wrapError (scaledrone.min.js:292:74)
+    at Object.<anonymous> (scaledrone.min.js:283:2004)
+    at l (scaledrone.min.js:2:2279)
+    at Object.trigger (scaledrone.min.js:2:1627)
+    at o.onmessage (scaledrone.min.js:289:299)
+
+    webrtc:1 Uncaught (in promise) InvalidStateError: Failed to execute 'setLocalDescription' on 'RTCPeerConnection': Failed to set local answer sdp: Called in wrong state: stable
+
+    Uncaught (in promise) InvalidStateError: Failed to execute 'createAnswer' on 'RTCPeerConnection': PeerConnection cannot create an answer in a state other than have-remote-offer or have-local-pranswer.

@@ -47,7 +47,7 @@ const iceServers: RTCIceServer[] = [
   { urls: ["stun:stun.l.google.com:19302"] },
   {
     urls: ["turn:122.166.150.147:5060?transport=tcp"],
-    "username": "test", 
+    "username": "test",
     "credential": "pa55w0rd!"
   }
 ];
@@ -162,7 +162,7 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
         if (videoEl) {
           videoEl.parentElement?.remove();
           if (index > -1)
-            showToast('Info', membersList[index].userInfo?.nickname + ' has left the room!');
+            showToast('Info', membersList[index]?.clientData?.userInfo?.nickname + ' has left the room!');
         }
         membersList.splice(index, 1);
 
@@ -213,7 +213,7 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
       case 'invite':
         try {
           if (data.to === drone.clientId && data.roomName) {
-            const inviter = membersList.find(m => m.id === senderId)?.userInfo?.nickname || 'Someone';
+            const inviter = membersList.find(m => m.id === senderId)?.clientData?.userInfo.nickname || 'Someone';
             const join = confirm(`${inviter} invited you to join room "${data.roomName}". Join now?`);
             if (join) {
               localStorage.setItem('roomName', data.roomName);
@@ -261,12 +261,12 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
 
     room.on('member_leave', (memberObj: any) => {
       const index = membersList.findIndex(member => member.id === memberObj.id);
-      console.log('Member left:', membersList[index]?.userInfo?.nickname);
+      console.log('Member left:', membersList[index]?.clientData?.userInfo?.nickname);
       const videoEl = document.getElementById(memberObj.id);
       if (videoEl) {
         videoEl.parentElement?.remove();
         if (index > -1)
-          showToast('Info', membersList[index].userInfo?.nickname + ' has left the room!');
+          showToast('Info', membersList[index].clientData.userInfo.nickname + ' has left the room!');
       }
       membersList.splice(index, 1);
       if (peerConnections[memberObj.id]) {
@@ -347,10 +347,10 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
     // Log when tracks are added
     pc.ontrack = (event: RTCTrackEvent) => {
       // console.log("Track received:", event.track.kind);
-      onRemoteTrack(event.streams[0], id, membersList.find(member => member.id === id)?.userInfo?.nickname || '');
+      onRemoteTrack(event.streams[0], id, membersList.find(member => member.id === id)?.clientData.userInfo.nickname || '');
       const index = membersList.findIndex(member => member.id === id);
       if (index > -1)
-        showToast('Info', membersList[index].userInfo?.nickname + ' has joined the room!');
+        showToast('Info', membersList[index].clientData?.userInfo?.nickname + ' has joined the room!');
     };
 
     if (isInitiator) {
@@ -408,7 +408,7 @@ export function getPeerName(peerId: string): string {
   try {
     if (!peerId) return '';
     const m = membersList.find(x => x?.id === peerId);
-    return m?.userInfo?.nickname || '';
+    return m?.clientData?.userInfo.nickname || '';
   } catch { return ''; }
 }
 
@@ -421,7 +421,7 @@ function notifyMemberSubscribers(): void {
     // Persist current room members snapshot for Rooms Manager
     try {
       const roomName = localStorage.getItem('roomName') || 'observable-e7b2d4';
-      const snapshot = getMembers().map(m => ({ id: m.id, nickname: m.userInfo?.nickname || '' }));
+      const snapshot = getMembers().map(m => ({ id: m.id, nickname: m.clientData?.userInfo.nickname || '' }));
       localStorage.setItem(`rooms_members_${roomName}`, JSON.stringify(snapshot));
     } catch {}
   } catch {}
@@ -440,7 +440,7 @@ export function subscribeMembers(callback: (members: Member[]) => void): () => v
 export function getMembers(): Member[] {
   return membersList.filter(m => !!m && m.id !== (drone?.clientId)).map(m => ({
     id: m.id,
-    userInfo: m.userInfo || {} as UserInfo
+    clientData: m.clientData || {} as UserInfo
   }));
 }
 

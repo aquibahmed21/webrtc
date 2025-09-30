@@ -12,8 +12,8 @@ let localfacingMode: 'user' | 'environment' = 'user';
 let selectedVideoDeviceId: string | null = null;
 let selectedAudioDeviceId: string | null = null;
 
-export function getCurrentLocalStream(): MediaStream | null { 
-  return localstream; 
+export function getCurrentLocalStream(): MediaStream | null {
+  return localstream;
 }
 
 export function setSelectedDevices({ videoDeviceId, audioDeviceId }: Partial<SelectedDevices>): void {
@@ -240,7 +240,8 @@ export function createVideoElement(stream: MediaStream, id: string, isLocal = fa
       video.setAttribute("mode", localstream.getVideoTracks()[0].getSettings().facingMode || 'user');
     video.click();
   }
-  else {
+  else  {
+    // if (!document.querySelector("#start")!.checkVisibility())
     video.setAttribute("isRemote", "true");
     channel.prepend(div);
     handleIncomingStream(stream, video);
@@ -267,7 +268,7 @@ function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement): voi
 
   video.srcObject = stream;
   video.volume = 0; // mute video element to avoid double audio
-  
+
   let isSpeaking = false;
   let lastActivityTime = 0;
   const activityTimeout = 500; // 500ms timeout for voice activity
@@ -321,12 +322,12 @@ function highlightSpeaker(isSpeaking: boolean, video: HTMLVideoElement): void {
 
   if (isSpeaking) {
     participant.classList.add('speaking');
-    participant.style.transform = 'scale(1.02)';
-    participant.style.boxShadow = '0 0 20px rgba(30, 144, 255, 0.6)';
+    // participant.style.transform = 'scale(1.02)';
+    // participant.style.boxShadow = '0 0 20px rgba(30, 144, 255, 0.6)';
   } else {
     participant.classList.remove('speaking');
-    participant.style.transform = '';
-    participant.style.boxShadow = '';
+    // participant.style.transform = '';
+    // participant.style.boxShadow = '';
   }
 }
 
@@ -344,22 +345,22 @@ function createAudioLevelIndicator(video: HTMLVideoElement): HTMLElement | null 
       <div class="bar"></div>
     </div>
   `;
-  
+
   participant.appendChild(indicator);
   return indicator;
 }
 
 function updateAudioLevelIndicator(indicator: HTMLElement | null, level: number): void {
   if (!indicator) return;
-  
+
   const bars = indicator.querySelectorAll('.bar');
   const normalizedLevel = Math.min(level / 50, 1); // Normalize to 0-1
   const activeBars = Math.ceil(normalizedLevel * bars.length);
-  
+
   bars.forEach((bar, index) => {
     const barElement = bar as HTMLElement;
     if (index < activeBars) {
-      barElement.style.height = `${20 + (index * 5)}px`;
+      barElement.style.height = `${(index * 25)}%`;
       barElement.style.opacity = '1';
     } else {
       barElement.style.height = '5px';
@@ -483,7 +484,7 @@ function getPreferredVideoCodec(): string {
 
 function getSupportedCodecs(): string[] {
   const codecs: string[] = [];
-  
+
   // Check VP8 support
   if (RTCRtpReceiver.getCapabilities && RTCRtpReceiver.getCapabilities('video')) {
     const videoCapabilities = RTCRtpReceiver.getCapabilities('video');
@@ -496,7 +497,7 @@ function getSupportedCodecs(): string[] {
       });
     }
   }
-  
+
   return [...new Set(codecs)]; // Remove duplicates
 }
 
@@ -526,10 +527,10 @@ export async function createOfferWithPreferredCodec(pc: RTCPeerConnection): Prom
     const offer = await pc.createOffer();
     const supportedCodecs = getSupportedCodecs();
     const preferredCodec = getPreferredVideoCodec();
-    
+
     console.log("Supported codecs:", supportedCodecs);
     console.log("Preferred codec:", preferredCodec);
-    
+
     // Only modify SDP if the preferred codec is supported
     let finalOffer = offer;
     if (supportedCodecs.includes(preferredCodec)) {
@@ -548,7 +549,7 @@ export async function createOfferWithPreferredCodec(pc: RTCPeerConnection): Prom
         }
       }
     }
-    
+
     await pc.setLocalDescription(finalOffer);
     return finalOffer;
   } catch (e) {
@@ -643,7 +644,7 @@ async function startScreenShare(): Promise<MediaStream | null> {
     };
 
     const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-    
+
     // Handle when user stops sharing via browser UI
     stream.getVideoTracks()[0].addEventListener('ended', () => {
       console.log('Screen sharing ended by user');

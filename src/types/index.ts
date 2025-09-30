@@ -40,7 +40,9 @@ export interface ReactionPayload {
 
 export interface Member {
   id: string;
-  userInfo: UserInfo;
+  clientData: {
+    userInfo: UserInfo;
+  };
 }
 
 export interface Theme {

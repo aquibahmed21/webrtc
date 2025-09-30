@@ -385,7 +385,7 @@ async function handlePiPToggle(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const nickname = JSON.parse(window.localStorage.getItem('userInfo') || '{}')?.nickname || "No name";
+  const nickname = JSON.parse(window.localStorage.getItem('userInfo') || '{}').nickname || "No name";
   SendPushToAll("Video Conferencing with KiteCite", "Started by " + nickname);
   restoreSelectedDevices();
   localStream = await getLocalStream();

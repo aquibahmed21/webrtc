@@ -67,7 +67,7 @@ function renderMembers(members: Member[]): void {
     list.innerHTML = '';
     const selfId = JSON.parse(localStorage.getItem('userInfo') || '{}').id;
     members.filter(m => m.id !== undefined && m.id !== null && m.id !== selfId).forEach(member => {
-      const { userInfo = {} as UserInfo } = member;
+      const { userInfo = {} as UserInfo } = member.clientData || {};
       const item = document.createElement('div');
       item.className = 'chat-message';
       const name = userInfo.nickname || 'Unknown';
@@ -221,7 +221,7 @@ function renderRooms(): void {
 }
 
 export function receiveDirectMessage(messageData: any, fromUserInfo: UserInfo): void {
-  const name = fromUserInfo?.nickname || 'Unknown';
+  const name = fromUserInfo.nickname || 'Unknown';
   showToast('Info', `DM from ${name}: ${messageData.message}`);
 }
 

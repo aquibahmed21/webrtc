@@ -429,7 +429,8 @@ select {
   min-width: 50px;
   display: block;
   height: 100%;
-  padding: 4px;
+  /* padding: 4px; */
+  border: 1px solid var(--border-secondary);
 }
 
 .participant video {
@@ -501,20 +502,19 @@ select {
 .participant.speaking {
   border: 1px solid var(--text-accent);
   box-shadow: 0 0 20px rgba(30, 144, 255, 0.6);
-  transform: scale(1.02);
   transition: all 0.3s ease;
 }
 
 /* Audio Level Indicator */
 .audio-level-indicator {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  top: 8px;
+  right: 6px;
   z-index: 5;
   background: rgba(0, 0, 0, 0.35);
-  padding: 6px 6px 4px 6px;
+  /* padding: 6px; */
   border-radius: 6px;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(1.5px);
   pointer-events: none;
   opacity: 0.6;
   transition: opacity 0.2s ease, transform 0.2s ease;
