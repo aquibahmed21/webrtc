@@ -244,6 +244,7 @@ export function createVideoElement(stream: MediaStream, id: string, isLocal = fa
     // if (!document.querySelector("#start")!.checkVisibility())
     video.setAttribute("isRemote", "true");
     channel.prepend(div);
+    if (channel.childElementCount === 2) video.click();
     handleIncomingStream(stream, video);
   }
 }

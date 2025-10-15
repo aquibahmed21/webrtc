@@ -121,6 +121,7 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
     const { data } = message || {};
     const member = message?.member || {};
     const senderId = message?.member?.id;
+    console.log({data})
     if (!data) return;
 
     if (!drone) return;
@@ -172,6 +173,9 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
           delete peerConnections[senderId];
         }
         delete candidateQueues[senderId];
+
+        if (document.querySelector(".Channel")!.childElementCount === 1)
+          document.querySelector(".Channel")?.children[0]?.querySelector("video")!.click();
         break;
 
       case 'join':
@@ -346,7 +350,8 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
 
     // Log when tracks are added
     pc.ontrack = (event: RTCTrackEvent) => {
-      // console.log("Track received:", event.track.kind);
+      console.log("Track received:", event.track.kind);
+      console.log({stream : event.streams[0], id, name: membersList.find(member => member.id === id)?.clientData.userInfo.nickname || ''});
       onRemoteTrack(event.streams[0], id, membersList.find(member => member.id === id)?.clientData.userInfo.nickname || '');
       const index = membersList.findIndex(member => member.id === id);
       if (index > -1)

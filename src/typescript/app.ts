@@ -326,6 +326,8 @@ document.querySelector(".Channel")?.addEventListener('click', (event: Event) => 
   const target = event.target as HTMLElement;
   if (target.tagName !== 'VIDEO') return;
   const mainVideo = document.getElementById('localMainVideo') as HTMLVideoElement;
+  if (mainVideo.getAttribute("participantID") == target.id) return;
+  mainVideo.setAttribute("participantID", target.id);
   const video = target as HTMLVideoElement;
   mainVideo.srcObject = video.srcObject;
   mainVideo.classList.add('active');
