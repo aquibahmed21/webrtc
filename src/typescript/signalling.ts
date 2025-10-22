@@ -13,7 +13,7 @@ export function createScaledrone(roomName: string, onOpen: (error?: any) => void
 
   function connect(): void {
     drone = new window.ScaleDrone(CHANNEL_ID, {
-      data: { userInfo},
+      data: { userInfo },
      });
     room = drone.subscribe(roomName);
 
