@@ -26,41 +26,66 @@ export function getSelectedDevices(): SelectedDevices {
 }
 
 // ===== Audio output routing (speaker / earpiece / bluetooth / headphones) =====
-// Remote audio is played through a per-peer AudioContext (see handleIncomingStream), not
-// through the <video> element, so output-device switching has to target those AudioContexts
-// via the Output Devices API (AudioContext.setSinkId) rather than HTMLMediaElement.setSinkId.
+// Remote audio is boosted/analysed through a per-peer AudioContext (see handleIncomingStream)
+// but is actually played out through a hidden <audio> element fed by that context's
+// MediaStreamAudioDestinationNode. We route it this way (rather than straight to
+// audioContext.destination) specifically so output switching can use
+// HTMLMediaElement.setSinkId, which has much broader real-world support - notably on
+// Android - than AudioContext.setSinkId, which is newer and inconsistently implemented
+// on mobile even where the method exists on the prototype.
 const AUDIO_OUTPUT_STORAGE_KEY = 'selectedAudioOutputId';
-const remoteAudioContexts = new Map<string, AudioContext>();
+interface RemotePeerAudio {
+  context: AudioContext;
+  element: HTMLAudioElement;
+}
+const remotePeerAudio = new Map<string, RemotePeerAudio>();
 
 export function isAudioOutputSwitchingSupported(): boolean {
-  return typeof AudioContext !== 'undefined' && typeof AudioContext.prototype.setSinkId === 'function';
+  return typeof HTMLMediaElement !== 'undefined' && typeof HTMLMediaElement.prototype.setSinkId === 'function';
 }
 
 export function getStoredAudioOutputId(): string {
   try { return localStorage.getItem(AUDIO_OUTPUT_STORAGE_KEY) || ''; } catch { return ''; }
 }
 
-async function applySinkIdToContext(ctx: AudioContext, deviceId: string): Promise<void> {
-  if (typeof ctx.setSinkId !== 'function') return;
+async function applySinkIdToElement(element: HTMLAudioElement, deviceId: string): Promise<void> {
+  if (typeof element.setSinkId !== 'function') return;
   try {
-    await ctx.setSinkId(deviceId);
+    await element.setSinkId(deviceId);
   } catch (e) {
     console.warn('Failed to set audio output for a peer:', e);
   }
 }
 
+// Creates the hidden <audio> element a peer's (gain-boosted) audio is actually played through,
+// and applies whichever output device the user previously chose.
+function createRemoteAudioElement(context: AudioContext, destinationNode: MediaStreamAudioDestinationNode, id: string): HTMLAudioElement {
+  const element = new Audio();
+  element.autoplay = true;
+  element.setAttribute('playsinline', 'true');
+  element.srcObject = destinationNode.stream;
+  element.play().catch(() => {}); // autoplay can be blocked until a user gesture; call start already required one
+
+  remotePeerAudio.set(id, { context, element });
+  const storedOutputId = getStoredAudioOutputId();
+  if (storedOutputId) applySinkIdToElement(element, storedOutputId);
+
+  return element;
+}
+
 // Called by the UI layer (audioOutput.ts) whenever the user picks a route.
 export async function setAudioOutputDevice(deviceId: string): Promise<void> {
   try { localStorage.setItem(AUDIO_OUTPUT_STORAGE_KEY, deviceId); } catch {}
-  await Promise.all(Array.from(remoteAudioContexts.values()).map(ctx => applySinkIdToContext(ctx, deviceId)));
+  await Promise.all(Array.from(remotePeerAudio.values()).map(({ element }) => applySinkIdToElement(element, deviceId)));
 }
 
-// Called when a peer's video element is torn down so we don't leak AudioContexts.
+// Called when a peer's video element is torn down so we don't leak AudioContexts/<audio> elements.
 export function removeRemoteAudioContext(id: string): void {
-  const ctx = remoteAudioContexts.get(id);
-  if (!ctx) return;
-  try { ctx.close(); } catch {}
-  remoteAudioContexts.delete(id);
+  const entry = remotePeerAudio.get(id);
+  if (!entry) return;
+  try { entry.element.pause(); entry.element.srcObject = null; entry.element.remove(); } catch {}
+  try { entry.context.close(); } catch {}
+  remotePeerAudio.delete(id);
 }
 
 const quality = document.querySelector('#quality') as HTMLElement;
@@ -301,15 +326,14 @@ function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement, id: 
   const bufferLength = analyserNode.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
 
-  // Connect the audio processing chain
+  // Connect the audio processing chain. The boosted signal is routed to a
+  // MediaStreamAudioDestinationNode rather than audioContext.destination, and actually
+  // played out through a hidden <audio> element - see createRemoteAudioElement - so that
+  // output-device switching can use the more broadly supported HTMLMediaElement.setSinkId.
+  const destinationNode = audioContext.createMediaStreamDestination();
   source.connect(analyserNode);
-  source.connect(gainNode).connect(audioContext.destination);
-
-  // Track this peer's AudioContext so the audio-output selector can route it, and
-  // apply whichever output device the user previously chose.
-  remoteAudioContexts.set(id, audioContext);
-  const storedOutputId = getStoredAudioOutputId();
-  if (storedOutputId) applySinkIdToContext(audioContext, storedOutputId);
+  source.connect(gainNode).connect(destinationNode);
+  createRemoteAudioElement(audioContext, destinationNode, id);
 
   video.srcObject = stream;
   video.volume = 0; // mute video element to avoid double audio

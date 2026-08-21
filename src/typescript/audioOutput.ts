@@ -66,10 +66,12 @@ async function openMenu(): Promise<void> {
 
   const devices = await listAudioOutputOptions();
   const selectedId = getStoredAudioOutputId();
-  const options: AudioOutputOption[] = [
-    { id: '', label: 'System Default', kind: 'default' },
-    ...devices.filter(d => d.id) // avoid duplicating the default entry
-  ];
+  // Some browsers (notably Android Chrome) already enumerate their own "default" sink
+  // (id "default", label "Default") - don't add our synthetic entry on top of that one.
+  const hasNativeDefault = devices.some(d => d.id === 'default' || d.label.toLowerCase() === 'default');
+  const options: AudioOutputOption[] = hasNativeDefault
+    ? devices
+    : [{ id: '', label: 'System Default', kind: 'default' }, ...devices];
 
   menuEl.innerHTML = options.map(option => `
     <button type="button" class="audio-output-item${option.id === selectedId ? ' active' : ''}"
