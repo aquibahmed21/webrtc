@@ -1,4 +1,4 @@
-var _a, _b, _c, _d, _e;
+var _a, _b, _c, _d;
 /* empty css                       */
 /* empty css                 */
 (function polyfill() {
@@ -264,7 +264,7 @@ function createChatUI() {
   emojiMenu = chatPanel.querySelector("#emojiMenu");
 }
 function setupChatEventListeners() {
-  var _a2, _b2, _c2, _d2, _e2;
+  var _a2, _b2, _c2, _d2, _e;
   chatToggle == null ? void 0 : chatToggle.addEventListener("click", () => {
     chatPanel == null ? void 0 : chatPanel.classList.toggle("active");
     if (chatPanel == null ? void 0 : chatPanel.classList.contains("active")) {
@@ -293,7 +293,7 @@ function setupChatEventListeners() {
   (_b2 = document.getElementById("btnBold")) == null ? void 0 : _b2.addEventListener("click", () => execCmd("bold"));
   (_c2 = document.getElementById("btnItalic")) == null ? void 0 : _c2.addEventListener("click", () => execCmd("italic"));
   (_d2 = document.getElementById("btnAttach")) == null ? void 0 : _d2.addEventListener("click", () => fileInput == null ? void 0 : fileInput.click());
-  (_e2 = document.getElementById("btnEmoji")) == null ? void 0 : _e2.addEventListener("click", toggleEmojiMenu);
+  (_e = document.getElementById("btnEmoji")) == null ? void 0 : _e.addEventListener("click", toggleEmojiMenu);
   fileInput == null ? void 0 : fileInput.addEventListener("change", handleFileSelection);
 }
 async function sendMessage() {
@@ -338,7 +338,7 @@ function addMessageToChat(messageData, isOwn = false) {
     const replied = chatMessages.find((m) => m.id === messageData.replyTo);
     if (replied) {
       const replyText = (replied.text || "").slice(0, 120);
-      replyHtml = `<div style="font-size:0.75rem; opacity:0.8; border-left:2px solid var(--border-primary); padding-left:6px; margin-bottom:4px;">Replying to <b>${escapeHtml$2(replied.sender)}</b>: ${escapeHtml$2(replyText)}</div>`;
+      replyHtml = `<div style="font-size:0.75rem; opacity:0.8; border-left:2px solid var(--border-primary); padding-left:6px; margin-bottom:4px;">Replying to <b>${escapeHtml$3(replied.sender)}</b>: ${escapeHtml$3(replyText)}</div>`;
     }
   }
   const attachmentsHtml = (messageData.attachments || []).map((att) => renderAttachment(att)).join("");
@@ -349,9 +349,9 @@ function addMessageToChat(messageData, isOwn = false) {
       <button class="replyBtn" title="Reply" style="flex:unset; padding:2px 6px;">↩︎ Reply</button>
       <span class="reactionsDisplay" style="margin-left:auto; font-size:0.9rem;"></span>
     </div>`;
-  const contentHtml = messageData.type === "message" ? `<div class="sender">${escapeHtml$2(messageData.sender)}</div>
+  const contentHtml = messageData.type === "message" ? `<div class="sender">${escapeHtml$3(messageData.sender)}</div>
        ${replyHtml}
-       <div class="content">${messageData.html || escapeHtml$2(messageData.text || "")}</div>
+       <div class="content">${messageData.html || escapeHtml$3(messageData.text || "")}</div>
        ${attachmentsHtml}
        <div class="time">${time}</div>
        ${reactionsBar}` : "";
@@ -430,7 +430,7 @@ function sendDirectMessage(toMemberId, message) {
   }).catch(() => {
   });
 }
-function escapeHtml$2(text) {
+function escapeHtml$3(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
@@ -582,7 +582,7 @@ function compressImageDataUrl(dataUrl, maxW = 900, maxH = 900, quality2 = 0.7) {
   });
 }
 function renderAttachment(att) {
-  const safeName = escapeHtml$2(att.name || "file");
+  const safeName = escapeHtml$3(att.name || "file");
   if ((att.type || "").startsWith("image/")) {
     return `<div style="margin-top:6px;"><img src="${att.dataUrl}" alt="${safeName}" style="max-width:200px; border-radius:6px;" /></div>`;
   }
@@ -783,7 +783,7 @@ function setupRoom(localStreamRef, onRemoteTrack) {
     }
   }
   function handleMessage(message) {
-    var _a2, _b2, _c2, _d2, _e2, _f, _g, _h, _i;
+    var _a2, _b2, _c2, _d2, _e, _f, _g, _h, _i;
     const { data } = message || {};
     const member = (message == null ? void 0 : message.member) || {};
     const senderId = (_a2 = message == null ? void 0 : message.member) == null ? void 0 : _a2.id;
@@ -820,7 +820,7 @@ function setupRoom(localStreamRef, onRemoteTrack) {
         if (videoEl) {
           (_b2 = videoEl.parentElement) == null ? void 0 : _b2.remove();
           if (index > -1)
-            showToast("Info", ((_e2 = (_d2 = (_c2 = membersList[index]) == null ? void 0 : _c2.clientData) == null ? void 0 : _d2.userInfo) == null ? void 0 : _e2.nickname) + " has left the room!");
+            showToast("Info", ((_e = (_d2 = (_c2 = membersList[index]) == null ? void 0 : _c2.clientData) == null ? void 0 : _d2.userInfo) == null ? void 0 : _e.nickname) + " has left the room!");
         }
         membersList.splice(index, 1);
         if (peerConnections[senderId]) {
@@ -828,6 +828,11 @@ function setupRoom(localStreamRef, onRemoteTrack) {
           delete peerConnections[senderId];
         }
         delete candidateQueues[senderId];
+        __vitePreload(async () => {
+          const { removeRemoteAudioContext: removeRemoteAudioContext2 } = await Promise.resolve().then(() => media);
+          return { removeRemoteAudioContext: removeRemoteAudioContext2 };
+        }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(senderId)).catch(() => {
+        });
         if (document.querySelector(".Channel").childElementCount === 1)
           (_g = (_f = document.querySelector(".Channel")) == null ? void 0 : _f.children[0]) == null ? void 0 : _g.querySelector("video").click();
         break;
@@ -923,6 +928,11 @@ function setupRoom(localStreamRef, onRemoteTrack) {
         delete peerConnections[memberObj.id];
       }
       delete candidateQueues[memberObj.id];
+      __vitePreload(async () => {
+        const { removeRemoteAudioContext: removeRemoteAudioContext2 } = await Promise.resolve().then(() => media);
+        return { removeRemoteAudioContext: removeRemoteAudioContext2 };
+      }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(memberObj.id)).catch(() => {
+      });
       notifyMemberSubscribers();
     });
   }
@@ -953,6 +963,11 @@ function setupRoom(localStreamRef, onRemoteTrack) {
       } else if (pc.iceConnectionState === "closed") {
         const el = document.getElementById(id);
         if (el) el.remove();
+        __vitePreload(async () => {
+          const { removeRemoteAudioContext: removeRemoteAudioContext2 } = await Promise.resolve().then(() => media);
+          return { removeRemoteAudioContext: removeRemoteAudioContext2 };
+        }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(id)).catch(() => {
+        });
         showToast("Info", "User has left the room!");
       }
     };
@@ -1092,6 +1107,11 @@ function destroyConnections() {
         }
       } catch {
       }
+      __vitePreload(async () => {
+        const { removeRemoteAudioContext: removeRemoteAudioContext2 } = await Promise.resolve().then(() => media);
+        return { removeRemoteAudioContext: removeRemoteAudioContext2 };
+      }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(peerId)).catch(() => {
+      });
     });
     Object.keys(candidateQueues).forEach((id) => delete candidateQueues[id]);
     try {
@@ -1136,12 +1156,51 @@ let localframeRate = 0;
 let localfacingMode = "user";
 let selectedVideoDeviceId = null;
 let selectedAudioDeviceId = null;
+function getCurrentLocalStream() {
+  return localstream;
+}
 function setSelectedDevices({ videoDeviceId, audioDeviceId }) {
   if (typeof videoDeviceId === "string") selectedVideoDeviceId = videoDeviceId || null;
   if (typeof audioDeviceId === "string") selectedAudioDeviceId = audioDeviceId || null;
 }
 function getSelectedDevices() {
   return { videoDeviceId: selectedVideoDeviceId, audioDeviceId: selectedAudioDeviceId };
+}
+const AUDIO_OUTPUT_STORAGE_KEY = "selectedAudioOutputId";
+const remoteAudioContexts = /* @__PURE__ */ new Map();
+function isAudioOutputSwitchingSupported() {
+  return typeof AudioContext !== "undefined" && typeof AudioContext.prototype.setSinkId === "function";
+}
+function getStoredAudioOutputId() {
+  try {
+    return localStorage.getItem(AUDIO_OUTPUT_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+async function applySinkIdToContext(ctx, deviceId) {
+  if (typeof ctx.setSinkId !== "function") return;
+  try {
+    await ctx.setSinkId(deviceId);
+  } catch (e) {
+    console.warn("Failed to set audio output for a peer:", e);
+  }
+}
+async function setAudioOutputDevice(deviceId) {
+  try {
+    localStorage.setItem(AUDIO_OUTPUT_STORAGE_KEY, deviceId);
+  } catch {
+  }
+  await Promise.all(Array.from(remoteAudioContexts.values()).map((ctx) => applySinkIdToContext(ctx, deviceId)));
+}
+function removeRemoteAudioContext(id) {
+  const ctx = remoteAudioContexts.get(id);
+  if (!ctx) return;
+  try {
+    ctx.close();
+  } catch {
+  }
+  remoteAudioContexts.delete(id);
 }
 const quality = document.querySelector("#quality");
 const framerate = document.querySelector("#framerate");
@@ -1336,10 +1395,10 @@ function createVideoElement(stream, id, isLocal = false, name = "") {
     video.setAttribute("isRemote", "true");
     channel.prepend(div);
     if (channel.childElementCount === 2) video.click();
-    handleIncomingStream(stream, video);
+    handleIncomingStream(stream, video, id);
   }
 }
-function handleIncomingStream(stream, video) {
+function handleIncomingStream(stream, video, id) {
   const threshold = 20;
   const audioContext = new AudioContext();
   const source = audioContext.createMediaStreamSource(stream);
@@ -1351,6 +1410,9 @@ function handleIncomingStream(stream, video) {
   const dataArray = new Uint8Array(bufferLength);
   source.connect(analyserNode);
   source.connect(gainNode).connect(audioContext.destination);
+  remoteAudioContexts.set(id, audioContext);
+  const storedOutputId = getStoredAudioOutputId();
+  if (storedOutputId) applySinkIdToContext(audioContext, storedOutputId);
   video.srcObject = stream;
   video.volume = 0;
   let isSpeaking = false;
@@ -1658,6 +1720,21 @@ async function startScreenShare() {
   }
 }
 checkScreenSharingSupport();
+const media = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  createOfferWithPreferredCodec,
+  createVideoElement,
+  getCurrentLocalStream,
+  getLocalStream,
+  getSelectedDevices,
+  getStoredAudioOutputId,
+  isAudioOutputSwitchingSupported,
+  removeRemoteAudioContext,
+  setAudioOutputDevice,
+  setSelectedDevices,
+  switchCamera,
+  switchToSelectedDevices
+}, Symbol.toStringTag, { value: "Module" }));
 function urlBase64ToUint8Array(base64String) {
   try {
     if (!base64String || typeof base64String !== "string") {
@@ -1826,8 +1903,8 @@ function renderMembers(members) {
       const status = userInfo2.status || "";
       const age = userInfo2.age || "";
       item.innerHTML = `
-        <div class="sender">${escapeHtml$1(name)}</div>
-        <div style="font-size: 0.85rem; opacity: 0.9;">${escapeHtml$1(gender)}${status ? " • " + escapeHtml$1(status) : ""}${age ? " • " + escapeHtml$1(String(age)) : ""}</div>
+        <div class="sender">${escapeHtml$2(name)}</div>
+        <div style="font-size: 0.85rem; opacity: 0.9;">${escapeHtml$2(gender)}${status ? " • " + escapeHtml$2(status) : ""}${age ? " • " + escapeHtml$2(String(age)) : ""}</div>
         <div style="margin-top:6px; display:flex; gap:6px;">
           <button class="dmBtn" data-id="${member.id}" style="flex:unset; padding:4px 8px;">Message</button>
           <button class="inviteBtn" data-id="${member.id}" style="flex:unset; padding:4px 8px;">Invite</button>
@@ -1927,12 +2004,12 @@ function renderRooms() {
     row.innerHTML = `
       <div style="display:flex; align-items:center; gap:6px;">
         <div style="flex:1;">
-          <div><b>${escapeHtml$1(name)}</b> ${name === current ? "(current)" : ""}</div>
-          <div style="font-size:0.8rem; opacity:0.85;">Users: ${escapeHtml$1(membersText)}</div>
+          <div><b>${escapeHtml$2(name)}</b> ${name === current ? "(current)" : ""}</div>
+          <div style="font-size:0.8rem; opacity:0.85;">Users: ${escapeHtml$2(membersText)}</div>
         </div>
-        <button class="roomSwitch" data-room="${escapeHtml$1(name)}" style="flex:unset; padding:4px 8px;">Join</button>
-        <button class="roomEdit" data-room="${escapeHtml$1(name)}" style="flex:unset; padding:4px 8px;">Edit</button>
-        <button class="roomDelete" data-room="${escapeHtml$1(name)}" style="flex:unset; padding:4px 8px;">Delete</button>
+        <button class="roomSwitch" data-room="${escapeHtml$2(name)}" style="flex:unset; padding:4px 8px;">Join</button>
+        <button class="roomEdit" data-room="${escapeHtml$2(name)}" style="flex:unset; padding:4px 8px;">Edit</button>
+        <button class="roomDelete" data-room="${escapeHtml$2(name)}" style="flex:unset; padding:4px 8px;">Delete</button>
       </div>`;
     container.appendChild(row);
   });
@@ -1982,16 +2059,152 @@ function receiveDirectMessage(messageData, fromUserInfo) {
   const name = fromUserInfo.nickname || "Unknown";
   showToast("Info", `DM from ${name}: ${messageData.message}`);
 }
-function escapeHtml$1(text) {
+function escapeHtml$2(text) {
   const div = document.createElement("div");
   div.textContent = text == null ? "" : String(text);
   return div.innerHTML;
 }
+function destroyUsersPanel() {
+  try {
+    if (membersUnsub) membersUnsub();
+  } catch {
+  }
+  try {
+    usersToggle == null ? void 0 : usersToggle.remove();
+  } catch {
+  }
+  try {
+    usersPanel == null ? void 0 : usersPanel.remove();
+  } catch {
+  }
+}
 const users = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
+  destroyUsersPanel,
   initializeUsersPanel,
   receiveDirectMessage
 }, Symbol.toStringTag, { value: "Module" }));
+const ROUTE_ICONS = {
+  speaker: "🔊",
+  earpiece: "📞",
+  bluetooth: "🎧",
+  headphones: "🎧",
+  default: "🔈"
+};
+let toggleBtn = null;
+let menuEl = null;
+function classifyAudioOutputDevice(label) {
+  const l = (label || "").toLowerCase();
+  if (!l || l.includes("default") || l.includes("communications")) return "default";
+  if (/bluetooth|airpods|hands-?free/.test(l)) return "bluetooth";
+  if (/earpiece|receiver/.test(l)) return "earpiece";
+  if (/speakerphone|speaker/.test(l)) return "speaker";
+  if (/headphone|headset|wired|line|aux/.test(l)) return "headphones";
+  return "default";
+}
+async function listAudioOutputOptions() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.filter((d) => d.kind === "audiooutput").map((d, idx) => ({
+      id: d.deviceId,
+      label: d.label || `Audio Output ${idx + 1}`,
+      kind: classifyAudioOutputDevice(d.label)
+    }));
+  } catch (e) {
+    console.warn("Failed to enumerate audio output devices:", e);
+    return [];
+  }
+}
+function escapeHtml$1(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+function updateToggleIcon(kind) {
+  if (toggleBtn) toggleBtn.textContent = `${ROUTE_ICONS[kind]} Audio Output`;
+}
+function closeMenu() {
+  menuEl == null ? void 0 : menuEl.classList.add("hidden");
+}
+function isMenuOpen() {
+  return !!menuEl && !menuEl.classList.contains("hidden");
+}
+async function openMenu() {
+  if (!menuEl || !toggleBtn) return;
+  const devices = await listAudioOutputOptions();
+  const selectedId = getStoredAudioOutputId();
+  const options = [
+    { id: "", label: "System Default", kind: "default" },
+    ...devices.filter((d) => d.id)
+    // avoid duplicating the default entry
+  ];
+  menuEl.innerHTML = options.map((option) => `
+    <button type="button" class="audio-output-item${option.id === selectedId ? " active" : ""}"
+      data-device-id="${escapeHtml$1(option.id)}" data-kind="${option.kind}">
+      <span class="icon">${ROUTE_ICONS[option.kind]}</span>
+      <span class="label">${escapeHtml$1(option.label)}</span>
+      ${option.id === selectedId ? '<span class="check">✓</span>' : ""}
+    </button>
+  `).join("");
+  const rect = toggleBtn.getBoundingClientRect();
+  const menuWidth = 260;
+  menuEl.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))}px`;
+  menuEl.style.top = `${rect.bottom + 6}px`;
+  menuEl.classList.remove("hidden");
+}
+async function handleMenuClick(event) {
+  var _a2;
+  const target = event.target.closest(".audio-output-item");
+  if (!target) return;
+  const deviceId = target.dataset.deviceId || "";
+  const kind = target.dataset.kind || "default";
+  closeMenu();
+  try {
+    await setAudioOutputDevice(deviceId);
+    updateToggleIcon(kind);
+    showToast("Success", `Audio output switched to ${(_a2 = target.querySelector(".label")) == null ? void 0 : _a2.textContent}`);
+  } catch (e) {
+    console.error("Failed to switch audio output:", e);
+    showToast("Error", "Unable to switch audio output");
+  }
+}
+function initializeAudioOutput() {
+  var _a2, _b2;
+  toggleBtn = document.getElementById("audioOutputToggle");
+  if (!toggleBtn) return;
+  if (!isAudioOutputSwitchingSupported()) {
+    toggleBtn.style.display = "none";
+    return;
+  }
+  menuEl = document.createElement("div");
+  menuEl.id = "audioOutputMenu";
+  menuEl.className = "audio-output-menu hidden";
+  document.body.appendChild(menuEl);
+  toggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (isMenuOpen()) closeMenu();
+    else openMenu();
+  });
+  menuEl.addEventListener("click", handleMenuClick);
+  document.addEventListener("click", (e) => {
+    if (isMenuOpen() && menuEl && !menuEl.contains(e.target) && e.target !== toggleBtn) {
+      closeMenu();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeMenu();
+  });
+  (_b2 = (_a2 = navigator.mediaDevices) == null ? void 0 : _a2.addEventListener) == null ? void 0 : _b2.call(_a2, "devicechange", () => {
+    if (isMenuOpen()) openMenu();
+  });
+  const storedId = getStoredAudioOutputId();
+  if (storedId) {
+    listAudioOutputOptions().then((devices) => {
+      const match = devices.find((d) => d.id === storedId);
+      if (match) updateToggleIcon(match.kind);
+    });
+  }
+}
 const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
@@ -2007,7 +2220,6 @@ let statsVisible = true;
 const pipToggleBtn = document.getElementById("pipToggle");
 const videoInputSelect = document.getElementById("videoInputSelect");
 const audioInputSelect = document.getElementById("audioInputSelect");
-const audioOutputSelect = document.getElementById("audioOutputSelect");
 const serverURL = window.location.hostname === "localhost" ? "http://localhost:3000/" : "https://web-push-3zaz.onrender.com/";
 const subscribeToPushNotification = document.querySelector("#push");
 if (navigator.mediaDevices) {
@@ -2155,42 +2367,9 @@ if (!userInfo) {
   if (!nickname || !gender)
     openModal();
 }
-(_a = document.querySelector("#audioOutputSelect")) == null ? void 0 : _a.addEventListener("change", async () => {
-  const selectedDeviceId = audioOutputSelect.value;
-  const remoteVideos = document.querySelectorAll("video[isRemote]");
-  try {
-    for (const remoteVideo of remoteVideos) {
-      const video = remoteVideo;
-      if (typeof video.setSinkId === "function") {
-        await video.setSinkId(selectedDeviceId);
-      }
-    }
-    console.log(`Audio output set to device: ${selectedDeviceId}`);
-  } catch (err) {
-    console.error("Error setting audio output device:", err);
-  }
-});
 navigator.mediaDevices.addEventListener("devicechange", () => {
   populateDeviceSelectors();
 });
-async function setupAudioOutputSelection() {
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const audioOutputs = devices.filter((device) => device.kind === "audiooutput" || device.label.includes("headset"));
-    if (audioOutputs.length > 0) {
-      audioOutputSelect.innerHTML = "";
-      audioOutputs.forEach((device) => {
-        const option = document.createElement("option");
-        option.value = device.deviceId;
-        option.text = device.label || device.kind || `Speaker ${audioOutputSelect.length + 1}`;
-        audioOutputSelect.appendChild(option);
-      });
-    }
-    audioOutputSelect.parentElement.style.display = audioOutputs.length <= 1 ? "none" : "";
-  } catch (err) {
-    console.error("Error fetching audio output devices:", err);
-  }
-}
 async function populateDeviceSelectors() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -2222,7 +2401,6 @@ async function populateDeviceSelectors() {
         audioInputSelect.value = current;
       }
     }
-    await setupAudioOutputSelection();
   } catch (e) {
     console.error("Failed to populate device selectors", e);
   }
@@ -2247,7 +2425,7 @@ function restoreSelectedDevices() {
   } catch {
   }
 }
-(_b = document.querySelector("#controls")) == null ? void 0 : _b.addEventListener("click", async (event) => {
+(_a = document.querySelector("#controls")) == null ? void 0 : _a.addEventListener("click", async (event) => {
   const target = event.target;
   const targetID = target.id;
   switch (targetID) {
@@ -2267,9 +2445,6 @@ function restoreSelectedDevices() {
     case "switchCamera":
       await switchCamera();
       break;
-    case "audioOutputRefresh":
-      setupAudioOutputSelection();
-      break;
     case "videoDevicesRefresh":
       populateDeviceSelectors();
       break;
@@ -2284,7 +2459,7 @@ function restoreSelectedDevices() {
       break;
   }
 });
-(_c = document.querySelector(".Channel")) == null ? void 0 : _c.addEventListener("click", (event) => {
+(_b = document.querySelector(".Channel")) == null ? void 0 : _b.addEventListener("click", (event) => {
   const target = event.target;
   if (target.tagName !== "VIDEO") return;
   const mainVideo = document.getElementById("localMainVideo");
@@ -2295,7 +2470,7 @@ function restoreSelectedDevices() {
   mainVideo.classList.add("active");
   mainVideo.style.transform = video.id === "localVideo" ? "scale(-1, 1)" : "";
 });
-(_d = document.querySelector("#localMainVideo")) == null ? void 0 : _d.addEventListener("dblclick", (event) => {
+(_c = document.querySelector("#localMainVideo")) == null ? void 0 : _c.addEventListener("dblclick", (event) => {
   const target = event.target;
   target.requestFullscreen();
 });
@@ -2385,7 +2560,7 @@ if (pipBtn) {
   statsToggle.id = "statsToggle";
   statsToggle.textContent = "📊 Stats";
   statsToggle.title = "Show/Hide bitrate stats";
-  (_e = pipBtn.parentNode) == null ? void 0 : _e.insertBefore(statsToggle, pipBtn.nextSibling);
+  (_d = pipBtn.parentNode) == null ? void 0 : _d.insertBefore(statsToggle, pipBtn.nextSibling);
   statsToggle.addEventListener("click", () => {
     statsVisible = !statsVisible;
     const panel = document.getElementById("statsPanel");
@@ -2394,6 +2569,7 @@ if (pipBtn) {
 }
 initializeChat();
 initializeUsersPanel();
+initializeAudioOutput();
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data && event.data.type === "NOTIFICATION_CLICK") {
@@ -2711,4 +2887,4 @@ function makeDraggable(el) {
   }, { passive: true });
   window.addEventListener("touchend", onUp);
 }
-//# sourceMappingURL=main-BQmR9Yjp.js.map
+//# sourceMappingURL=main-D4-IysOH.js.map
