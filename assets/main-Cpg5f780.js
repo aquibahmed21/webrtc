@@ -1167,9 +1167,9 @@ function getSelectedDevices() {
   return { videoDeviceId: selectedVideoDeviceId, audioDeviceId: selectedAudioDeviceId };
 }
 const AUDIO_OUTPUT_STORAGE_KEY = "selectedAudioOutputId";
-const remoteAudioContexts = /* @__PURE__ */ new Map();
+const remotePeerAudio = /* @__PURE__ */ new Map();
 function isAudioOutputSwitchingSupported() {
-  return typeof AudioContext !== "undefined" && typeof AudioContext.prototype.setSinkId === "function";
+  return typeof HTMLMediaElement !== "undefined" && typeof HTMLMediaElement.prototype.setSinkId === "function";
 }
 function getStoredAudioOutputId() {
   try {
@@ -1178,29 +1178,47 @@ function getStoredAudioOutputId() {
     return "";
   }
 }
-async function applySinkIdToContext(ctx, deviceId) {
-  if (typeof ctx.setSinkId !== "function") return;
+async function applySinkIdToElement(element, deviceId) {
+  if (typeof element.setSinkId !== "function") return;
   try {
-    await ctx.setSinkId(deviceId);
+    await element.setSinkId(deviceId);
   } catch (e) {
     console.warn("Failed to set audio output for a peer:", e);
   }
+}
+function createRemoteAudioElement(context, destinationNode, id) {
+  const element = new Audio();
+  element.autoplay = true;
+  element.setAttribute("playsinline", "true");
+  element.srcObject = destinationNode.stream;
+  element.play().catch(() => {
+  });
+  remotePeerAudio.set(id, { context, element });
+  const storedOutputId = getStoredAudioOutputId();
+  if (storedOutputId) applySinkIdToElement(element, storedOutputId);
+  return element;
 }
 async function setAudioOutputDevice(deviceId) {
   try {
     localStorage.setItem(AUDIO_OUTPUT_STORAGE_KEY, deviceId);
   } catch {
   }
-  await Promise.all(Array.from(remoteAudioContexts.values()).map((ctx) => applySinkIdToContext(ctx, deviceId)));
+  await Promise.all(Array.from(remotePeerAudio.values()).map(({ element }) => applySinkIdToElement(element, deviceId)));
 }
 function removeRemoteAudioContext(id) {
-  const ctx = remoteAudioContexts.get(id);
-  if (!ctx) return;
+  const entry = remotePeerAudio.get(id);
+  if (!entry) return;
   try {
-    ctx.close();
+    entry.element.pause();
+    entry.element.srcObject = null;
+    entry.element.remove();
   } catch {
   }
-  remoteAudioContexts.delete(id);
+  try {
+    entry.context.close();
+  } catch {
+  }
+  remotePeerAudio.delete(id);
 }
 const quality = document.querySelector("#quality");
 const framerate = document.querySelector("#framerate");
@@ -1408,11 +1426,10 @@ function handleIncomingStream(stream, video, id) {
   analyserNode.fftSize = 256;
   const bufferLength = analyserNode.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
+  const destinationNode = audioContext.createMediaStreamDestination();
   source.connect(analyserNode);
-  source.connect(gainNode).connect(audioContext.destination);
-  remoteAudioContexts.set(id, audioContext);
-  const storedOutputId = getStoredAudioOutputId();
-  if (storedOutputId) applySinkIdToContext(audioContext, storedOutputId);
+  source.connect(gainNode).connect(destinationNode);
+  createRemoteAudioElement(audioContext, destinationNode, id);
   video.srcObject = stream;
   video.volume = 0;
   let isSpeaking = false;
@@ -2133,11 +2150,8 @@ async function openMenu() {
   if (!menuEl || !toggleBtn) return;
   const devices = await listAudioOutputOptions();
   const selectedId = getStoredAudioOutputId();
-  const options = [
-    { id: "", label: "System Default", kind: "default" },
-    ...devices.filter((d) => d.id)
-    // avoid duplicating the default entry
-  ];
+  const hasNativeDefault = devices.some((d) => d.id === "default" || d.label.toLowerCase() === "default");
+  const options = hasNativeDefault ? devices : [{ id: "", label: "System Default", kind: "default" }, ...devices];
   menuEl.innerHTML = options.map((option) => `
     <button type="button" class="audio-output-item${option.id === selectedId ? " active" : ""}"
       data-device-id="${escapeHtml$1(option.id)}" data-kind="${option.kind}">
@@ -2887,4 +2901,4 @@ function makeDraggable(el) {
   }, { passive: true });
   window.addEventListener("touchend", onUp);
 }
-//# sourceMappingURL=main-D4-IysOH.js.map
+//# sourceMappingURL=main-Cpg5f780.js.map
