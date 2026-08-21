@@ -52,76 +52,121 @@
   <link rel="stylesheet" href="./src/styles/userInfoModal.css">
 </head>
 
-<body>
-  <h4>Video Conferencing with KiteCite</h4>
+<body data-call-state="lobby">
   <div id="app">
-    <div id="connectionStatus" aria-live="polite"><span class="dot"></span><span class="text">Connected</span><button
-        id="retryBtn" title="Retry connection">Retry</button></div>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">🪁</span><span class="brand-name">KiteCite</span></div>
+      <div id="connectionStatus" aria-live="polite"><span class="dot"></span><span class="text">Connected</span><button
+          id="retryBtn" title="Retry connection">Retry</button></div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-right">
+        <span id="liveBadge" class="live-badge hidden">🔴 <span class="live-label">LIVE</span><span id="liveViewerCount" class="live-count">👁 0</span></span>
+        <button id="onlineUsersPill" class="pill" title="Online participants">👥 0</button>
+        <button id="profileChip" class="profile-chip" title="Edit your profile"></button>
+      </div>
+    </header>
+
     <button id="push" class="hidden">🔔 Notification</button>
     <!-- Toast Container -->
     <div id="toastContainer"></div>
-    <div class="mainVideoContainer">
-      <video id="localMainVideo" autoplay muted playsinline></video>
-    </div>
-    <div class="Channel"></div>
+
+    <main class="stage">
+      <div class="mainVideoContainer">
+        <video id="localMainVideo" autoplay muted playsinline></video>
+        <p class="lobby-hint">Set up your camera and mic below, then start a call.</p>
+      </div>
+      <div class="Channel"></div>
+    </main>
+
     <div class="controls" id="controls">
       <div class="btnList">
-        <button id="start">Start 🎬</button>
-        <button id="muteAudio">🔇 Mute Audio</button>
-        <button id="muteVideo">🎥 Mute Video</button>
-        <button id="switchCamera">🔄 Switch Camera</button>
-        <button id="shareScreen" isShared="false">🖥️ Share Screen</button>
-        <button id="pipToggle">📺 Picture-in-Picture</button>
-        <button id="audioOutputToggle" title="Choose audio output (speaker, earpiece, Bluetooth, headphones)">🔊 Audio Output</button>
-        <button id="hangup">📞 Hang Up</button>
-      </div>
-
-      <div class="sub-control">
-        <div id="device-selectors" class="device-selectors">
-          <div class="device-row">
-            <label for="videoInputSelect">Camera:</label>
-            <select id="videoInputSelect"></select>
-            <button id="videoDevicesRefresh" title="Refresh cameras">🔄</button>
-          </div>
-          <div class="device-row">
-            <label for="audioInputSelect">Microphone:</label>
-            <select id="audioInputSelect"></select>
-            <button id="audioDevicesRefresh" title="Refresh microphones">🔄</button>
+        <div class="start-call-wrap">
+          <button id="start" class="action-btn action-primary" title="Start a call">
+            <span class="action-icon">📞</span><span class="action-label">Start Call</span>
+          </button>
+          <div id="callTypePopover" class="popover">
+            <button type="button" data-call-type="video"><span class="action-icon">🎥</span><span>Video Call</span></button>
+            <button type="button" data-call-type="audio"><span class="action-icon">🎤</span><span>Audio Call</span></button>
+            <button type="button" data-call-type="live-host"><span class="action-icon">🔴</span><span>Go Live</span></button>
+            <button type="button" data-call-type="live-viewer"><span class="action-icon">👁</span><span>Watch Only</span></button>
           </div>
         </div>
-        <label for="quality">Select quality:</label>
-        <div class="radio-group" id="quality">
-          <input type="radio" name="quality" id="160x120" value="160x120" checked>
-          <label for="160x120">160x120</label>
-          <input type="radio" name="quality" id="320x240" value="320x240">
-          <label for="320x240">320x240</label>
-          <input type="radio" name="quality" id="640x480" value="640x480">
-          <label for="640x480">640x480</label>
-          <input type="radio" name="quality" id="1280x720" value="1280x720">
-          <label for="1280x720">1280x720</label>
-          <input type="radio" name="quality" id="1920x1080" value="1920x1080">
-          <label for="1920x1080">1920x1080</label>
+
+        <button id="muteAudio" class="action-btn" title="Mute Audio"><span class="action-icon">🔇</span><span class="action-label">Mute Audio</span></button>
+        <button id="muteVideo" class="action-btn" title="Mute Video"><span class="action-icon">🎥</span><span class="action-label">Mute Video</span></button>
+        <button id="switchCamera" class="action-btn" title="Switch Camera"><span class="action-icon">🔄</span><span class="action-label">Switch Camera</span></button>
+        <button id="shareScreen" isShared="false" class="action-btn" title="Share Screen"><span class="action-icon">🖥️</span><span class="action-label">Share Screen</span></button>
+        <button id="pipToggle" class="action-btn" title="Picture-in-Picture"><span class="action-icon">📺</span><span class="action-label">Picture-in-Picture</span></button>
+        <button id="audioOutputToggle" class="action-btn" title="Choose audio output (speaker, earpiece, Bluetooth, headphones)"><span class="action-icon">🔊</span><span class="action-label">Audio Output</span></button>
+
+        <button id="chatToggle" class="action-btn" title="Toggle Chat"><span class="action-icon">💬</span><span class="action-label">Chat</span></button>
+        <button id="peopleToggle" class="action-btn" title="Show Participants"><span class="action-icon">👥</span><span class="action-label">People</span></button>
+
+        <div class="more-wrap">
+          <button id="moreToggle" class="action-btn" title="More options"><span class="action-icon">⋯</span><span class="action-label">More</span></button>
+          <div id="moreSheet" class="more-sheet">
+            <div class="sub-control">
+              <div id="device-selectors" class="device-selectors">
+                <div class="device-row">
+                  <label for="videoInputSelect">Camera:</label>
+                  <select id="videoInputSelect"></select>
+                  <button id="videoDevicesRefresh" title="Refresh cameras">🔄</button>
+                </div>
+                <div class="device-row">
+                  <label for="audioInputSelect">Microphone:</label>
+                  <select id="audioInputSelect"></select>
+                  <button id="audioDevicesRefresh" title="Refresh microphones">🔄</button>
+                </div>
+              </div>
+              <label for="quality">Select quality:</label>
+              <div class="radio-group" id="quality">
+                <input type="radio" name="quality" id="160x120" value="160x120" checked>
+                <label for="160x120">160x120</label>
+                <input type="radio" name="quality" id="320x240" value="320x240">
+                <label for="320x240">320x240</label>
+                <input type="radio" name="quality" id="640x480" value="640x480">
+                <label for="640x480">640x480</label>
+                <input type="radio" name="quality" id="1280x720" value="1280x720">
+                <label for="1280x720">1280x720</label>
+                <input type="radio" name="quality" id="1920x1080" value="1920x1080">
+                <label for="1920x1080">1920x1080</label>
+              </div>
+
+              <label for="framerate">Select framerate:</label>
+              <div class="radio-group" id="framerate">
+                <input type="radio" name="framerate" id="10" value="10" checked>
+                <label for="10">10</label>
+                <input type="radio" name="framerate" id="20" value="20">
+                <label for="20">20</label>
+                <input type="radio" name="framerate" id="30" value="30">
+                <label for="30">30</label>
+                <input type="radio" name="framerate" id="60" value="60">
+                <label for="60">60</label>
+              </div>
+            </div>
+            <div class="sub-control-recording hidden">
+              <button id="startRecording">Start Recording</button>
+              <button id="stopRecording" disabled>Stop Recording</button>
+              <a id="downloadRecording" class="hidden" download="meeting-recording.webm">Download Recording</a>
+              <video id="screenVideo" autoplay muted playsinline></video>
+            </div>
+          </div>
         </div>
 
-        <label for="framerate">Select framerate:</label>
-        <div class="radio-group" id="framerate">
-          <input type="radio" name="framerate" id="10" value="10" checked>
-          <label for="10">10</label>
-          <input type="radio" name="framerate" id="20" value="20">
-          <label for="20">20</label>
-          <input type="radio" name="framerate" id="30" value="30">
-          <label for="30">30</label>
-          <input type="radio" name="framerate" id="60" value="60">
-          <label for="60">60</label>
-        </div>
-      </div>
-      <div class="sub-control-recording hidden">
-        <button id="startRecording">Start Recording</button>
-        <button id="stopRecording" disabled>Stop Recording</button>
-        <a id="downloadRecording" class="hidden" download="meeting-recording.webm">Download Recording</a>
-        <video id="screenVideo" autoplay muted playsinline></video>
+        <button id="hangup" class="action-btn action-danger" title="Hang Up"><span class="action-icon">📞</span><span class="action-label">Hang Up</span></button>
       </div>
     </div>
+
+    <!-- Shared side drawer: Chat + People tabs -->
+    <aside id="sideDrawer" class="side-drawer">
+      <div class="drawer-tabs">
+        <button id="drawerTabChat" class="drawer-tab active" data-tab="chat">💬 Chat</button>
+        <button id="drawerTabPeople" class="drawer-tab" data-tab="people">👥 People</button>
+        <button id="closeDrawer" class="drawer-close" title="Close">×</button>
+      </div>
+      <div id="drawerPaneChat" class="drawer-pane active"></div>
+      <div id="drawerPanePeople" class="drawer-pane"></div>
+    </aside>
 
     <button id="refresh" onclick="location.reload()" title="Refresh page">&#x1f504;</button>
 
@@ -138,7 +183,8 @@
       <span class="close-btn" id="closeModal">×</span>
 
       <div class="userInfo">
-        <h2>Get User Info</h2>
+        <div class="profile-avatar-preview" id="profileAvatarPreview">?</div>
+        <h2>Your Profile</h2>
         <label for="nickname">Nickname</label>
         <input type="text" name="nickname" id="nickname" placeholder="Enter your nickname">
 
@@ -157,7 +203,7 @@
         <input type="number" name="age" id="age" placeholder="Enter your age">
 
         <div class="actions">
-          <button class="submit-btn" id="submit-btn">Submit</button>
+          <button class="submit-btn" id="submit-btn">Save Profile</button>
         </div>
       </div>
     </div>

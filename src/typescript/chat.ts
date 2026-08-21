@@ -4,7 +4,6 @@ import { MessageData, ReactionPayload, Attachment } from '../types/index.js';
 
 let chatMessages: MessageData[] = [];
 let chatPanel: HTMLElement | null = null;
-let chatToggle: HTMLButtonElement | null = null;
 let chatEditor: HTMLElement | null = null;
 let fileInput: HTMLInputElement | null = null;
 let replyContext: HTMLElement | null = null;
@@ -18,46 +17,35 @@ export function initializeChat(): void {
 }
 
 function createChatUI(): void {
-  // Create chat toggle button
-  chatToggle = document.createElement('button');
-  chatToggle.id = 'chatToggle';
-  chatToggle.innerHTML = '💬 Chat';
-  chatToggle.title = 'Toggle Chat';
-  const switchCamera = document.getElementById("switchCamera");
-  switchCamera?.parentNode?.insertBefore(chatToggle, switchCamera.nextSibling);
-
-  // Create chat panel
-  chatPanel = document.createElement('div');
-  chatPanel.className = 'chat-panel';
+  // Renders into the shared side-drawer's Chat tab (index.html); the drawer itself
+  // owns open/close + tab-switching (see app.ts's openDrawer/switchDrawerTab).
+  chatPanel = document.getElementById('drawerPaneChat');
+  if (!chatPanel) return;
   chatPanel.innerHTML = `
-    <div class="chat-header">
-      <span>Chat</span>
-      <button id="closeChat" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer;">×</button>
-    </div>
     <div class="chat-messages" id="chatMessages">
-      <div class="chat-message">
-        <div class="sender">System</div>
-        <div>Welcome to the chat! Type a message below.</div>
+      <div class="chat-message system">
+        <div class="content">Welcome to the chat! Type a message below.</div>
         <div class="time">${new Date().toLocaleTimeString()}</div>
       </div>
     </div>
     <div class="chat-input">
-      <div style="display:flex;gap:6px;width:100%;align-items:center;justify-content: flex-end;">
-        <div id="chatToolbar" style="display:flex; gap:6px;">
-          <button id="btnBold" title="Bold" style="flex:unset; padding:4px 8px;">B</button>
-          <button id="btnItalic" title="Italic" style="flex:unset; padding:4px 8px;"><i>I</i></button>
-          <button id="btnEmoji" title="Emoji" style="flex:unset; padding:4px 8px;">😊</button>
-          <button id="btnAttach" title="Attach file" style="flex:unset; padding:4px 8px; display:none;">📎</button>
+      <div class="chat-toolbar-row">
+        <div id="chatToolbar" class="chat-toolbar">
+          <button id="btnBold" title="Bold">B</button>
+          <button id="btnItalic" title="Italic"><i>I</i></button>
+          <button id="btnEmoji" title="Emoji">😊</button>
+          <button id="btnAttach" title="Attach file" style="display:none;">📎</button>
           <input id="fileInput" type="file" multiple style="display:none;" />
         </div>
-        <div id="replyContext" style="display:none; font-size:0.8rem; opacity:0.8; background: var(--bg-secondary); padding:2px 6px; border-radius:6px;"></div>
+        <div id="replyContext" class="reply-context hidden"></div>
       </div>
-      <div id="chatEditor" contenteditable="true" placeholder="Type a message..." style="flex:1; min-height:44px; max-height:140px; overflow:auto; padding:8px; border: 1px solid var(--border-primary); border-radius: var(--radius-small); background: var(--bg-input);"></div>
-      <button id="sendMessage">Send</button>
-      <div id="emojiMenu" style="display:none; position:absolute; background: var(--bg-panel); padding:6px; border-radius:8px; box-shadow: var(--shadow-soft); gap:4px;"></div>
+      <div class="chat-composer-row">
+        <div id="chatEditor" contenteditable="true" data-placeholder="Type a message..."></div>
+        <button id="sendMessage" class="send-btn" title="Send message">➤</button>
+      </div>
+      <div id="emojiMenu" class="emoji-menu hidden"></div>
     </div>
   `;
-  document.body.appendChild(chatPanel);
   chatEditor = chatPanel.querySelector('#chatEditor');
   fileInput = chatPanel.querySelector('#fileInput') as HTMLInputElement;
   replyContext = chatPanel.querySelector('#replyContext');
@@ -65,19 +53,6 @@ function createChatUI(): void {
 }
 
 function setupChatEventListeners(): void {
-  // Toggle chat panel
-  chatToggle?.addEventListener('click', () => {
-    chatPanel?.classList.toggle('active');
-    if (chatPanel?.classList.contains('active')) {
-      (chatEditor as HTMLElement)?.focus();
-    }
-  });
-
-  // Close chat panel
-  document.getElementById('closeChat')?.addEventListener('click', () => {
-    chatPanel?.classList.remove('active');
-  });
-
   // Send message
   const sendButton = document.getElementById('sendMessage');
 
@@ -158,7 +133,7 @@ function addMessageToChat(messageData: MessageData, isOwn = false): void {
     const replied = chatMessages.find(m => m.id === messageData.replyTo);
     if (replied) {
       const replyText = (replied.text || '').slice(0, 120);
-      replyHtml = `<div style="font-size:0.75rem; opacity:0.8; border-left:2px solid var(--border-primary); padding-left:6px; margin-bottom:4px;">Replying to <b>${escapeHtml(replied.sender)}</b>: ${escapeHtml(replyText)}</div>`;
+      replyHtml = `<div class="reply-preview">Replying to <b>${escapeHtml(replied.sender)}</b>: ${escapeHtml(replyText)}</div>`;
     }
   }
 
@@ -166,21 +141,25 @@ function addMessageToChat(messageData: MessageData, isOwn = false): void {
   const attachmentsHtml = (messageData.attachments || []).map(att => renderAttachment(att)).join('');
 
   // Reaction bar
-  const reactionsBar = `<div class="reactions" style="margin-top:6px; display:flex; gap:6px; align-items:center;">
-      <button class="reactBtn" data-emoji="👍" title="Like" style="flex:unset; padding:2px 6px;">👍</button>
-      <button class="reactBtn" data-emoji="❤️" title="Love" style="flex:unset; padding:2px 6px;">❤️</button>
-      <button class="reactBtn" data-emoji="😂" title="Haha" style="flex:unset; padding:2px 6px;">😂</button>
-      <button class="replyBtn" title="Reply" style="flex:unset; padding:2px 6px;">↩︎ Reply</button>
-      <span class="reactionsDisplay" style="margin-left:auto; font-size:0.9rem;"></span>
+  const reactionsBar = `<div class="reactions">
+      <button class="reactBtn" data-emoji="👍" title="Like">👍</button>
+      <button class="reactBtn" data-emoji="❤️" title="Love">❤️</button>
+      <button class="reactBtn" data-emoji="😂" title="Haha">😂</button>
+      <button class="replyBtn" title="Reply">↩︎</button>
+      <span class="reactionsDisplay"></span>
     </div>`;
 
+  const avatarInitial = (messageData.sender || '?').trim().charAt(0).toUpperCase() || '?';
+
   const contentHtml = messageData.type === 'message'
-    ? `<div class="sender">${escapeHtml(messageData.sender)}</div>
-       ${replyHtml}
-       <div class="content">${messageData.html || escapeHtml(messageData.text || '')}</div>
-       ${attachmentsHtml}
-       <div class="time">${time}</div>
-       ${reactionsBar}`
+    ? `<div class="msg-avatar">${escapeHtml(avatarInitial)}</div>
+       <div class="msg-body">
+         <div class="msg-header"><span class="sender">${escapeHtml(messageData.sender)}</span><span class="time">${time}</span></div>
+         ${replyHtml}
+         <div class="content">${messageData.html || escapeHtml(messageData.text || '')}</div>
+         ${attachmentsHtml}
+         ${reactionsBar}
+       </div>`
     : '';
 
   // Reaction-only updates will be applied via updateMessageReactions

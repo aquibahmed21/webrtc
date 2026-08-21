@@ -50,7 +50,10 @@ function escapeHtml(text: string): string {
 }
 
 function updateToggleIcon(kind: AudioRouteKind): void {
-  if (toggleBtn) toggleBtn.textContent = `${ROUTE_ICONS[kind]} Audio Output`;
+  if (!toggleBtn) return;
+  // The button renders as an icon span + a label span; only swap the icon.
+  const icon = toggleBtn.querySelector('.action-icon');
+  if (icon) icon.textContent = ROUTE_ICONS[kind]; else toggleBtn.textContent = `${ROUTE_ICONS[kind]} Audio Output`;
 }
 
 function closeMenu(): void {

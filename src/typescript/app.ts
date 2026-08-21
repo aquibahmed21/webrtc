@@ -1,18 +1,19 @@
 // app.ts
 import { serviceWorkerMain } from './main.js';
-import { getLocalStream, createVideoElement, switchCamera, switchToSelectedDevices, setSelectedDevices, getSelectedDevices } from './media.js';
-import { setupRoom, pcInfo, drone, manualReconnect, connectionStatus, getPeerConnections, getPeerName } from './room.js';
+import { getLocalStream, createVideoElement, switchCamera, switchToSelectedDevices, setSelectedDevices, getSelectedDevices, resetLocalStreamState } from './media.js';
+import { setupRoom, pcInfo, drone, manualReconnect, connectionStatus, getPeerConnections, getPeerName, subscribeMembers } from './room.js';
 import { showToast } from './toast.js';
 import { urlBase64ToUint8Array } from './util.js';
 import { initializeTheme, createThemeSelector } from './theme.js';
 import { initializeChat } from './chat.js';
 import { initializeUsersPanel } from './users.js';
 import { initializeAudioOutput } from './audioOutput.js';
-import { UserInfo } from '../types/index.js';
+import { UserInfo, CallType } from '../types/index.js';
 
 export const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
 export const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream: MediaStream | null = null;
+let activeCallType: CallType = 'video';
 
 const muteVideo = document.querySelector('#muteVideo') as HTMLButtonElement;
 const muteAudio = document.querySelector('#muteAudio') as HTMLButtonElement;
@@ -20,6 +21,11 @@ const userInfoModal = document.querySelector('#userInfoModal') as HTMLElement;
 const retryBtn = document.querySelector('#retryBtn') as HTMLButtonElement;
 const connectionStatusBar = document.querySelector('#connectionStatus') as HTMLElement;
 const connectionStatusText = connectionStatusBar?.querySelector('.text') as HTMLElement;
+const profileChip = document.getElementById('profileChip') as HTMLButtonElement;
+const onlineUsersPill = document.getElementById('onlineUsersPill') as HTMLElement;
+const callTypePopover = document.getElementById('callTypePopover') as HTMLElement;
+const liveBadge = document.getElementById('liveBadge') as HTMLElement;
+const liveViewerCount = document.getElementById('liveViewerCount') as HTMLElement;
 let callStartMs: number | null = null;
 let statsInterval: NodeJS.Timeout | null = null;
 let statsVisible = true;
@@ -28,6 +34,19 @@ const videoInputSelect = document.getElementById('videoInputSelect') as HTMLSele
 const audioInputSelect = document.getElementById('audioInputSelect') as HTMLSelectElement;
 // const videoDevicesRefresh = document.getElementById('videoDevicesRefresh') as HTMLButtonElement;
 // const audioDevicesRefresh = document.getElementById('audioDevicesRefresh') as HTMLButtonElement;
+
+function setCallState(state: 'lobby' | 'in-call' | 'live-host' | 'live-viewer'): void {
+  document.body.dataset.callState = state;
+}
+setCallState('lobby');
+
+// Keep the top-bar "online" pill live regardless of whether the People drawer is open.
+subscribeMembers((members) => {
+  if (onlineUsersPill) onlineUsersPill.textContent = `👥 ${members.length}`;
+  if (liveViewerCount && (document.body.dataset.callState === 'live-host' || document.body.dataset.callState === 'live-viewer')) {
+    liveViewerCount.textContent = `👁 ${members.length}`;
+  }
+});
 
 const serverURL = window.location.hostname === 'localhost' ? 'http://localhost:3000/' :
   'https://web-push-3zaz.onrender.com/';
@@ -184,6 +203,7 @@ if (!userInfo) {
   if (!nickname || !gender)
     openModal();
 }
+updateProfileChip();
 
 navigator.mediaDevices.addEventListener('devicechange', () => {
   populateDeviceSelectors();
@@ -244,25 +264,40 @@ function restoreSelectedDevices(): void {
   } catch {}
 }
 
+// Buttons render as an icon span + a label span (for responsive icon-only layouts),
+// so a click's real target is often the inner span rather than the button itself.
+function setActionLabel(button: HTMLElement, text: string): void {
+  const label = button.querySelector('.action-label');
+  if (label) label.textContent = text; else button.textContent = text;
+}
+
 document.querySelector("#controls")?.addEventListener('click', async (event: Event) => {
-  const target = event.target as HTMLElement;
+  const target = (event.target as HTMLElement).closest('button[id]') as HTMLElement | null;
+  if (!target) return;
   const targetID = target.id;
   switch (targetID) {
     case 'start':
-      (target as HTMLButtonElement).disabled = true;
-      await main();
-      (target as HTMLButtonElement).disabled = false;
+      callTypePopover?.classList.toggle('open');
       break;
     case 'muteAudio':
-      target.textContent = "🔇 " + (localStream?.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio');
+      setActionLabel(target, localStream?.getAudioTracks()[0].enabled ? 'Unmute Audio' : 'Mute Audio');
       localStream?.getAudioTracks()[0] && (localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled);
       break;
     case 'muteVideo':
-      target.textContent = "🎥 " + (localStream?.getVideoTracks()[0].enabled ? 'Unmute Video' : 'Mute Video');
+      setActionLabel(target, localStream?.getVideoTracks()[0].enabled ? 'Unmute Video' : 'Mute Video');
       localStream?.getVideoTracks()[0] && (localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled);
       break;
     case 'switchCamera':
-      await switchCamera();
+      if (activeCallType !== 'audio') await switchCamera();
+      break;
+    case 'chatToggle':
+      toggleDrawer('chat');
+      break;
+    case 'peopleToggle':
+      toggleDrawer('people');
+      break;
+    case 'moreToggle':
+      document.getElementById('moreSheet')?.classList.toggle('open');
       break;
     case 'videoDevicesRefresh':
       populateDeviceSelectors();
@@ -277,6 +312,74 @@ document.querySelector("#controls")?.addEventListener('click', async (event: Eve
       handlePiPToggle();
       break;
   }
+});
+
+// ===== Start Call type picker (Video / Audio / Go Live) =====
+callTypePopover?.addEventListener('click', async (event: Event) => {
+  const target = event.target as HTMLElement;
+  const choice = target.closest('[data-call-type]') as HTMLElement | null;
+  if (!choice) return;
+  const callType = choice.dataset.callType as CallType;
+  const startBtn = document.getElementById('start') as HTMLButtonElement;
+  callTypePopover.classList.remove('open');
+  if (startBtn) startBtn.disabled = true;
+  await main(callType);
+  if (startBtn) startBtn.disabled = false;
+});
+
+document.addEventListener('click', (event: Event) => {
+  if (!callTypePopover || !callTypePopover.classList.contains('open')) return;
+  const target = event.target as HTMLElement;
+  // A click on #start itself is often its inner icon/label span, not the button -
+  // resolve via closest() rather than comparing target.id directly.
+  if (callTypePopover.contains(target) || target.closest('#start')) return;
+  callTypePopover.classList.remove('open');
+});
+
+// ===== Profile chip opens the same profile modal as before =====
+profileChip?.addEventListener('click', openModal);
+
+// ===== Shared side drawer (Chat / People tabs) =====
+const sideDrawer = document.getElementById('sideDrawer') as HTMLElement | null;
+
+function switchDrawerTab(tab: 'chat' | 'people'): void {
+  document.querySelectorAll('.drawer-tab').forEach(btn => {
+    btn.classList.toggle('active', (btn as HTMLElement).dataset.tab === tab);
+  });
+  document.getElementById('drawerPaneChat')?.classList.toggle('active', tab === 'chat');
+  document.getElementById('drawerPanePeople')?.classList.toggle('active', tab === 'people');
+}
+
+function openDrawer(tab: 'chat' | 'people'): void {
+  sideDrawer?.classList.add('open');
+  switchDrawerTab(tab);
+  if (tab === 'chat') (document.getElementById('chatEditor') as HTMLElement | null)?.focus();
+}
+
+function closeDrawer(): void {
+  sideDrawer?.classList.remove('open');
+}
+
+function toggleDrawer(tab: 'chat' | 'people'): void {
+  const isOpenOnTab = sideDrawer?.classList.contains('open')
+    && document.querySelector(`.drawer-tab[data-tab="${tab}"]`)?.classList.contains('active');
+  if (isOpenOnTab) closeDrawer(); else openDrawer(tab);
+}
+
+document.getElementById('closeDrawer')?.addEventListener('click', closeDrawer);
+document.querySelectorAll('.drawer-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchDrawerTab((btn as HTMLElement).dataset.tab as 'chat' | 'people'));
+});
+onlineUsersPill?.addEventListener('click', () => openDrawer('people'));
+
+// Close the "More" overflow sheet when clicking elsewhere
+document.addEventListener('click', (event: Event) => {
+  const moreSheet = document.getElementById('moreSheet');
+  const moreToggleBtn = document.getElementById('moreToggle');
+  if (!moreSheet || !moreSheet.classList.contains('open')) return;
+  const target = event.target as HTMLElement;
+  if (moreSheet.contains(target) || moreToggleBtn?.contains(target)) return;
+  moreSheet.classList.remove('open');
 });
 
 document.querySelector(".Channel")?.addEventListener('click', (event: Event) => {
@@ -306,10 +409,10 @@ if (pipToggleBtn) {
     const mainVideo = document.getElementById('localMainVideo') as HTMLVideoElement;
     if (mainVideo) {
       mainVideo.addEventListener('enterpictureinpicture', () => {
-        pipToggleBtn.textContent = '🗗 Exit PiP';
+        setActionLabel(pipToggleBtn, 'Exit PiP');
       });
       mainVideo.addEventListener('leavepictureinpicture', () => {
-        pipToggleBtn.textContent = '🗔 Picture-in-Picture';
+        setActionLabel(pipToggleBtn, 'Picture-in-Picture');
       });
     }
   }
@@ -343,18 +446,40 @@ async function handlePiPToggle(): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
+function markAsLiveHostTile(id: string): void {
+  const tile = document.querySelector(`.participant[data-id="${id}"]`) as HTMLElement | null;
+  if (tile && !tile.querySelector('.live-tile-badge')) {
+    const badge = document.createElement('span');
+    badge.className = 'live-tile-badge';
+    badge.textContent = '🔴 LIVE';
+    tile.appendChild(badge);
+  }
+}
+
+async function main(callType: CallType = 'video'): Promise<void> {
+  activeCallType = callType;
+  const isViewer = callType === 'live-viewer';
+  const isLive = callType === 'live-host' || isViewer;
+  setCallState(callType === 'live-host' ? 'live-host' : isViewer ? 'live-viewer' : 'in-call');
+  liveBadge?.classList.toggle('hidden', !isLive);
+
   const nickname = JSON.parse(window.localStorage.getItem('userInfo') || '{}').nickname || "No name";
   SendPushToAll("Video Conferencing with KiteCite", "Started by " + nickname);
   restoreSelectedDevices();
-  localStream = await getLocalStream();
-  if (localStream) {
-    createVideoElement(localStream, 'localVideo', true, "You");
+
+  // Viewers never touch the camera/mic - they only receive the host's tracks.
+  if (!isViewer) {
+    localStream = await getLocalStream(callType === 'audio' ? 'audio' : 'video');
+    if (localStream) {
+      createVideoElement(localStream, 'localVideo', true, "You");
+      if (callType === 'live-host') markAsLiveHostTile('localVideo');
+    }
   }
+
   callStartMs = Date.now();
   startStatsPolling();
 
-  if (!isIos) {
+  if (!isIos && !isViewer) {
     await populateDeviceSelectors();
   }
 
@@ -366,13 +491,12 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (localStream) {
-    setupRoom(localStream, (remoteStream, id, name) => {
-      if (!document.getElementById(id)) {
-        createVideoElement(remoteStream, id, false, name);
-      }
-    });
-  }
+  setupRoom(localStream, (remoteStream, id, name, remoteCallType) => {
+    if (!document.getElementById(id)) {
+      createVideoElement(remoteStream, id, false, name);
+      if (remoteCallType === 'live-host') markAsLiveHostTile(id);
+    }
+  }, callType);
 }
 
 if (!isIos)
@@ -386,20 +510,21 @@ if (!isMobile) {
 // Initialize theme system
 initializeTheme();
 
-// Add theme selector to controls
+// Secondary controls (theme, stats) live in the "More" overflow sheet alongside
+// device/quality/framerate pickers, keeping the primary control bar short.
+const moreSheetControls = document.querySelector('#moreSheet .sub-control');
+
+// Add theme selector
 const themeSelector = createThemeSelector();
-const controls = document.querySelector('.controls');
-if (controls) {
-  controls.insertAdjacentElement('afterend', themeSelector);
-}
-// Add stats toggle button next to PiP if available
-const pipBtn = document.getElementById('pipToggle') || document.getElementById('shareScreen') || document.getElementById('hangup');
-if (pipBtn) {
+moreSheetControls?.appendChild(themeSelector);
+
+// Add stats toggle button
+if (moreSheetControls) {
   const statsToggle = document.createElement('button');
   statsToggle.id = 'statsToggle';
-  statsToggle.textContent = '📊 Stats';
+  statsToggle.textContent = '📊 Toggle Stats';
   statsToggle.title = 'Show/Hide bitrate stats';
-  pipBtn.parentNode?.insertBefore(statsToggle, pipBtn.nextSibling);
+  moreSheetControls.appendChild(statsToggle);
   statsToggle.addEventListener('click', () => {
     statsVisible = !statsVisible;
     const panel = document.getElementById('statsPanel');
@@ -423,16 +548,9 @@ if ('serviceWorker' in navigator) {
       // Handle notification click - could open chat, focus on specific room, etc.
       console.log('Notification clicked:', event.data.data);
 
-      // Example: Open chat panel if notification was about a message
+      // Example: Open the chat drawer if notification was about a message
       if (event.data.data.type === 'chat') {
-        const chatPanel = document.querySelector('.chat-panel');
-        if (chatPanel) {
-          chatPanel.classList.add('active');
-          const chatInput = document.getElementById('chatInput') as HTMLInputElement;
-          if (chatInput) {
-            chatInput.focus();
-          }
-        }
+        openDrawer('chat');
       }
 
       // Example: Join specific room if notification was about a call
@@ -493,41 +611,59 @@ userInfoModal?.addEventListener('click', (event: Event) => {
   }
 });
 
+// Reflects the current profile in the top-bar profile chip (avatar initial + name).
+// Doubles as the "please set up a profile" prompt when no profile exists yet.
+function updateProfileChip(): void {
+  if (!profileChip) return;
+  const raw = window.localStorage.getItem('userInfo');
+  const parsed = raw ? JSON.parse(raw) : null;
+  const nickname = parsed?.nickname || '';
+  const initial = (nickname || '?').trim().charAt(0).toUpperCase() || '?';
+  profileChip.innerHTML = `<span class="chip-avatar">${initial}</span><span class="chip-name">${nickname || 'Set up profile'}</span>`;
+  profileChip.title = nickname ? 'Edit your profile' : 'Enter your details to start a call';
+}
+
+// Live avatar preview inside the profile modal, reflecting nickname initial + gender emoji.
+function updateProfileAvatarPreview(): void {
+  const preview = document.getElementById('profileAvatarPreview');
+  if (!preview) return;
+  const nickname = (document.querySelector('#nickname') as HTMLInputElement)?.value || '';
+  const gender = (document.querySelector('#divGender') as HTMLElement)?.querySelector("input:checked") as HTMLInputElement | null;
+  const initial = nickname.trim().charAt(0).toUpperCase();
+  preview.textContent = initial || (gender?.value === 'female' ? '👩' : '👨');
+}
+document.getElementById('nickname')?.addEventListener('input', updateProfileAvatarPreview);
+document.getElementById('divGender')?.addEventListener('change', updateProfileAvatarPreview);
+
 function openModal(): void {
   userInfoModal?.classList.add("show-modal");
   const userInfo = window.localStorage.getItem('userInfo');
-  const h4 = document.querySelector('h4') as HTMLElement;
   if (userInfo) {
     const parsed = JSON.parse(userInfo);
     (document.querySelector('#nickname') as HTMLInputElement).value = parsed.nickname;
-    (document.querySelector('#divGender') as HTMLElement).querySelector(`input[value=${parsed.gender}]`) as HTMLInputElement;
+    const genderInput = (document.querySelector('#divGender') as HTMLElement).querySelector(`input[value="${parsed.gender}"]`) as HTMLInputElement | null;
+    if (genderInput) genderInput.checked = true;
     (document.querySelector('#status') as HTMLInputElement).value = parsed.status;
     (document.querySelector('#age') as HTMLInputElement).value = parsed.age;
-    h4.innerHTML = "Video Conferencing with KiteCite";
   }
   else {
     (document.querySelector('#start') as HTMLButtonElement).setAttribute('disabled', 'true');
-    h4.innerHTML = "Dear Anonymous User, Please Enter Your Details";
   }
+  updateProfileAvatarPreview();
 }
 
 function closeModal(): void {
   const userInfo = window.localStorage.getItem('userInfo');
-  const h4 = document.querySelector('h4') as HTMLElement;
   userInfoModal?.classList.remove("show-modal");
+  updateProfileChip();
   if (userInfo) {
     (document.querySelector('#nickname') as HTMLInputElement).value = "";
-    (document.querySelector('#divGender') as HTMLElement).querySelector("input[value='male']") as HTMLInputElement;
     (document.querySelector('#status') as HTMLInputElement).value = "";
     (document.querySelector('#age') as HTMLInputElement).value = "";
-    h4.innerHTML = "Video Conferencing with KiteCite";
     (document.querySelector('#start') as HTMLButtonElement).removeAttribute('disabled');
-    h4.removeEventListener('click', openModal);
   }
   else {
     (document.querySelector('#start') as HTMLButtonElement).setAttribute('disabled', 'true');
-    h4.innerHTML = "Dear Anonymous User, Please Enter Your Details By Clicking Here";
-    h4.addEventListener('click', openModal);
   }
 }
 
@@ -537,16 +673,7 @@ function ensureStatsPanel(): HTMLElement {
   if (statsPanel) return statsPanel;
   statsPanel = document.createElement('div');
   statsPanel.id = 'statsPanel';
-  statsPanel.style.position = 'fixed';
-  statsPanel.style.bottom = '10px';
-  statsPanel.style.left = '10px';
-  statsPanel.style.zIndex = '1001';
-  statsPanel.style.background = 'var(--bg-card)';
-  statsPanel.style.border = '1px solid var(--border-primary)';
-  statsPanel.style.borderRadius = '8px';
-  statsPanel.style.padding = '8px 10px';
-  statsPanel.style.fontSize = '12px';
-  statsPanel.style.maxWidth = '320px';
+  statsPanel.className = 'stats-panel';
   statsPanel.innerHTML = `<div id="callDuration">Duration: 00:00</div><div id="overallStats"></div><div id="perPeerStats" style="margin-top:6px;"></div>`;
   document.body.appendChild(statsPanel);
 
@@ -655,8 +782,8 @@ function stopStatsPolling(): void {
 function resetControlsUI(): void {
   try {
     // Reset toggle button labels
-    if (muteVideo) muteVideo.textContent = '🎥 Mute Video';
-    if (muteAudio) muteAudio.textContent = '🔇 Mute Audio';
+    if (muteVideo) setActionLabel(muteVideo, 'Mute Video');
+    if (muteAudio) setActionLabel(muteAudio, 'Mute Audio');
     // Hide main video active state
     document.querySelector('#localMainVideo')?.classList.remove('active');
     // Clear channel grid
@@ -672,6 +799,10 @@ function resetControlsUI(): void {
       connectionStatusBar.classList.add('connected');
       if (connectionStatusText) connectionStatusText.textContent = 'Connected';
     }
+    // Back to the pre-call lobby (Start Call button + type picker)
+    activeCallType = 'video';
+    setCallState('lobby');
+    liveBadge?.classList.add('hidden');
   } catch {}
 }
 
@@ -688,6 +819,7 @@ async function resetAfterHangup(): Promise<void> {
       }
     } catch {}
     localStream = null;
+    try { resetLocalStreamState(); } catch {}
     // Notify others you left
     try {
       if (drone && drone.rooms) {

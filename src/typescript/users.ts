@@ -5,12 +5,13 @@ import { showToast } from './toast.js';
 import { Member, UserInfo } from '../types/index.js';
 
 let usersPanel: HTMLElement | null = null;
-let usersToggle: HTMLButtonElement | null = null;
 let membersUnsub: (() => void) | null = null;
+let initialized = false;
 
 export function initializeUsersPanel(): void {
   try {
-    if (document.getElementById('usersToggle')) return; // prevent duplicates
+    if (initialized) return; // prevent duplicates
+    initialized = true;
     createUsersUI();
     membersUnsub = subscribeMembers(renderMembers);
     // Initial render
@@ -22,33 +23,19 @@ export function initializeUsersPanel(): void {
 }
 
 function createUsersUI(): void {
-  usersToggle = document.createElement('button');
-  usersToggle.id = 'usersToggle';
-  usersToggle.innerHTML = '👥 Users';
-  usersToggle.title = 'Show Participants';
-  const pipBtn = document.getElementById('pipToggle') || document.getElementById('hangup');
-  pipBtn?.parentNode?.insertBefore(usersToggle, pipBtn.nextSibling);
-
-  usersPanel = document.createElement('div');
-  usersPanel.className = 'chat-panel';
-  usersPanel.style.zIndex = '1003';
-  usersPanel.style.right = 'unset';
-  usersPanel.style.left = 'unset';
+  // Renders into the shared side-drawer's People tab (index.html); the drawer itself
+  // owns open/close + tab-switching (see app.ts's openDrawer/switchDrawerTab).
+  usersPanel = document.getElementById('drawerPanePeople');
+  if (!usersPanel) return;
   usersPanel.innerHTML = `
-    <div class="chat-header"><span>Participants</span>
-      <button id="closeUsers" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer;">×</button>
-    </div>
-    <div class="chat-input" style="padding:6px; gap:6px;">
+    <div class="people-room-row">
       <input id="customRoomName" placeholder="Enter room name" maxlength="100" />
       <button id="setRoom">Set Room</button>
     </div>
-    <div class="chat-messages" id="usersList" style="gap:6px"></div>
-    <div class="chat-messages" id="roomsList" style="gap:6px; margin-top:6px;"></div>
+    <div class="chat-messages" id="usersList"></div>
+    <div class="chat-messages" id="roomsList" style="margin-top:6px;"></div>
   `;
-  document.body.appendChild(usersPanel);
 
-  usersToggle.addEventListener('click', () => usersPanel?.classList.toggle('active'));
-  usersPanel.querySelector('#closeUsers')?.addEventListener('click', () => usersPanel?.classList.remove('active'));
   document.getElementById('setRoom')?.addEventListener('click', () => {
     const input = document.getElementById('customRoomName') as HTMLInputElement;
     const value = (input.value || '').trim();
@@ -67,19 +54,24 @@ function renderMembers(members: Member[]): void {
     list.innerHTML = '';
     const selfId = JSON.parse(localStorage.getItem('userInfo') || '{}').id;
     members.filter(m => m.id !== undefined && m.id !== null && m.id !== selfId).forEach(member => {
-      const { userInfo = {} as UserInfo } = member.clientData || {};
+      const { userInfo = {} as UserInfo, callType } = member.clientData || {};
       const item = document.createElement('div');
-      item.className = 'chat-message';
+      item.className = 'person-row';
       const name = userInfo.nickname || 'Unknown';
       const gender = userInfo.gender || '-';
       const status = userInfo.status || '';
       const age = userInfo.age || '';
+      const initial = name.trim().charAt(0).toUpperCase() || '?';
+      const liveTag = callType === 'live-host' ? '<span class="person-live-tag">🔴 LIVE</span>' : '';
       item.innerHTML = `
-        <div class="sender">${escapeHtml(name)}</div>
-        <div style="font-size: 0.85rem; opacity: 0.9;">${escapeHtml(gender)}${status ? ' • ' + escapeHtml(status) : ''}${age ? ' • ' + escapeHtml(String(age)) : ''}</div>
-        <div style="margin-top:6px; display:flex; gap:6px;">
-          <button class="dmBtn" data-id="${member.id}" style="flex:unset; padding:4px 8px;">Message</button>
-          <button class="inviteBtn" data-id="${member.id}" style="flex:unset; padding:4px 8px;">Invite</button>
+        <div class="person-avatar">${escapeHtml(initial)}<span class="presence-dot"></span></div>
+        <div class="person-info">
+          <div class="person-name">${escapeHtml(name)}${liveTag}</div>
+          <div class="person-meta">${escapeHtml(gender)}${status ? ' • ' + escapeHtml(status) : ''}${age ? ' • ' + escapeHtml(String(age)) : ''}</div>
+        </div>
+        <div class="person-actions">
+          <button class="dmBtn" data-id="${member.id}" title="Message">💬</button>
+          <button class="inviteBtn" data-id="${member.id}" title="Invite">➕</button>
         </div>
       `;
       list.appendChild(item);
@@ -233,6 +225,7 @@ function escapeHtml(text: string): string {
 
 export function destroyUsersPanel(): void {
   try { if (membersUnsub) membersUnsub(); } catch {}
-  try { usersToggle?.remove(); } catch {}
-  try { usersPanel?.remove(); } catch {}
+  // usersPanel is the persistent drawer pane (index.html), so just clear its content.
+  try { if (usersPanel) usersPanel.innerHTML = ''; } catch {}
+  initialized = false;
 }

@@ -1,6 +1,6 @@
 import { pcInfo, drone } from './room.js';
 import { showToast } from './toast.js';
-import { SelectedDevices } from '../types/index.js';
+import { SelectedDevices, CallType } from '../types/index.js';
 
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo') || '{}');
 
@@ -11,9 +11,24 @@ let localframeRate = 0;
 let localfacingMode: 'user' | 'environment' = 'user';
 let selectedVideoDeviceId: string | null = null;
 let selectedAudioDeviceId: string | null = null;
+// 'audio' calls never request a camera; see getMediaStream().
+let currentCallType: CallType = 'video';
 
 export function getCurrentLocalStream(): MediaStream | null {
   return localstream;
+}
+
+// Called by app.ts on hangup. Without this, this module's own `localstream` reference
+// (returned to app.ts by getLocalStream() and shared - not copied) keeps pointing at the
+// stopped MediaStream after a call ends. The next getLocalStream() call would then see a
+// stale non-null `localstream` and treat it as "already have a mic", requesting audio:false -
+// which throws for an audio-only call, where video is also always false.
+export function resetLocalStreamState(): void {
+  localstream = null;
+  localwidth = 0;
+  localheight = 0;
+  localframeRate = 0;
+  currentCallType = 'video';
 }
 
 export function setSelectedDevices({ videoDeviceId, audioDeviceId }: Partial<SelectedDevices>): void {
@@ -118,13 +133,20 @@ if (framerate) {
   });
 }
 
+// Buttons render as an icon span + a label span; set the label without clobbering the icon.
+function setButtonLabel(button: HTMLElement, text: string): void {
+  const label = button.querySelector('.action-label');
+  if (label) label.textContent = text; else button.textContent = text;
+}
+
 if (screenShare) {
   screenShare.addEventListener('click', async (event: Event) => {
-    const target = event.target as HTMLButtonElement;
+    // currentTarget (not target) - a click can land on the icon/label span inside the button.
+    const target = event.currentTarget as HTMLButtonElement;
     const localVideo = document.querySelector("#localVideo") as HTMLVideoElement;
     target.setAttribute('disabled', 'true');
     if (target.getAttribute('isShared') === 'true') {
-      target.textContent = '🖥️ Share Screen';
+      setButtonLabel(target, 'Share Screen');
       target.setAttribute('isShared', 'false');
       muteVideo?.removeAttribute('disabled');
       quality?.removeAttribute('disabled');
@@ -147,7 +169,7 @@ if (screenShare) {
       const screenStream = await startScreenShare();
       if (!screenStream) return;
 
-      target.textContent = '🖥️ Stop Sharing';
+      setButtonLabel(target, 'Stop Sharing');
       target.setAttribute('isShared', 'true');
       muteVideo?.setAttribute('disabled', 'true');
       quality?.setAttribute('disabled', 'true');
@@ -187,13 +209,22 @@ async function getMediaStream(width: number, height: number, frameRate: number, 
     });
   }
   try {
+    const audioConstraints = selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true;
+    if (currentCallType === 'audio') {
+      // Audio-only call: never touch the camera.
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: localstream ? false : audioConstraints
+      });
+      return newStream;
+    }
+
     const videoConstraints = selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : {
       width: { ideal: width },
       height: { ideal: height },
       frameRate: { ideal: frameRate },
       facingMode: { ideal: newFacing }
     };
-    const audioConstraints = selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true;
     const constraints: MediaStreamConstraints = {
       video: videoConstraints,
       audio: localstream ? false : audioConstraints
@@ -230,7 +261,7 @@ async function updateStream(width: number, height: number, frameRate: number, is
       localstream.removeTrack(oldTrack);
     }
 
-    localstream.addTrack(newVideoTrack);
+    if (newVideoTrack) localstream.addTrack(newVideoTrack);
     if (newAudioTrack && localstream.getAudioTracks().length === 0) {
       localstream.addTrack(newAudioTrack);
     }
@@ -260,7 +291,8 @@ export async function switchToSelectedDevices(videoDeviceId: string, audioDevice
 }
 
 // media.ts
-export async function getLocalStream(): Promise<MediaStream | null> {
+export async function getLocalStream(callType: CallType = 'video'): Promise<MediaStream | null> {
+  currentCallType = callType;
   const selectedOption = quality?.querySelector("input:checked") as HTMLInputElement;
   const [width, height] = (selectedOption?.value || '640x480').split('x').map(Number);
   const framerateInput = framerate?.querySelector("input:checked") as HTMLInputElement;
@@ -269,14 +301,24 @@ export async function getLocalStream(): Promise<MediaStream | null> {
   return localstream;
 }
 
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text == null ? '' : String(text);
+  return div.innerHTML;
+}
+
 export function createVideoElement(stream: MediaStream, id: string, isLocal = false, name = ''): void {
+  const hasVideo = stream.getVideoTracks().length > 0;
+  const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
   const div = document.createElement('div');
   div.className = "participant";
   div.setAttribute("data-id", id);
+  div.setAttribute("data-has-video", hasVideo ? "true" : "false");
   div.innerHTML = `<video autoplay playsinline></video>
+    <div class="avatar-placeholder"><span class="avatar-initial">${escapeHtml(initial)}</span></div>
     <div class="overlay">
-      <span class="name">${name}</span>
-      <div class="controls">
+      <span class="name">${escapeHtml(name)}</span>
+      <div class="tile-controls">
         <button class="muteAudio">🔇</button>
         <button class="muteVideo">🎥</button>
         <button class="switchCamera">🔄</button>
@@ -718,7 +760,7 @@ async function startScreenShare(): Promise<MediaStream | null> {
     stream.getVideoTracks()[0].addEventListener('ended', () => {
       console.log('Screen sharing ended by user');
       if (screenShare) {
-        screenShare.textContent = '🖥️ Share Screen';
+        setButtonLabel(screenShare, 'Share Screen');
         screenShare.setAttribute('isShared', 'false');
         screenShare.removeAttribute('disabled');
       }

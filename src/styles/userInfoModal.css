@@ -43,6 +43,21 @@
   color: #f44336;
 }
 
+/* Live avatar preview at the top of the profile card */
+.profile-avatar-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-button, #1e90ff);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 auto 12px;
+}
+
 /* Header */
 h2 {
   font-size: 24px;

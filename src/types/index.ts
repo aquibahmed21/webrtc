@@ -8,6 +8,11 @@ export interface UserInfo {
   age?: number;
 }
 
+// 'video'/'audio' are regular two-way calls (audio-only skips the camera).
+// 'live-host' broadcasts camera/screen to viewers; 'live-viewer' joins
+// read-only (never calls getUserMedia) to watch a live-host's stream.
+export type CallType = 'video' | 'audio' | 'live-host' | 'live-viewer';
+
 export interface MessageData {
   id: number;
   type: 'message' | 'reaction';
@@ -42,6 +47,7 @@ export interface Member {
   id: string;
   clientData: {
     userInfo: UserInfo;
+    callType?: CallType;
   };
 }
 
@@ -69,6 +75,9 @@ export interface ConnectionStatus {
 export interface SignallingRef {
   drone: any; // ScaleDrone instance
   room: any; // ScaleDrone room
+  disconnect: () => void; // permanently stop the internal reconnect loop
+  reconnectNow: () => void; // force an immediate reconnect attempt, bypassing backoff
+  isOpen: () => boolean; // whether the signalling channel is currently connected
 }
 
 export interface PeerConnectionInfo {
