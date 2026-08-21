@@ -6,40 +6,40 @@
   <title>KiteCite UI Preview</title>
   <meta name="theme-color" content="#0f2027">
   <link rel="icon" type="image/x-icon" href="/webrtc/images/favicon.ico">
-  <link rel="stylesheet" crossorigin href="/webrtc/assets/userInfoModal-BZ-QmmSb.css">
-  <link rel="stylesheet" crossorigin href="/webrtc/assets/channel-D6GwJJ2r.css">
+  <link rel="stylesheet" crossorigin href="/webrtc/assets/userInfoModal-DGm6mx1k.css">
+  <link rel="stylesheet" crossorigin href="/webrtc/assets/channel-C9AKxiEX.css">
 </head>
-<body>
-  <h4>Video Conferencing with KiteCite</h4>
+<body data-call-state="in-call">
   <div id="app">
-    <div id="connectionStatus" aria-live="polite"><span class="dot"></span><span class="text">UI Preview</span></div>
-    <div class="mainVideoContainer">
-      <video id="localMainVideo" autoplay muted playsinline></video>
-    </div>
-    <div class="Channel"></div>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">🪁</span><span class="brand-name">KiteCite</span></div>
+      <div id="connectionStatus" aria-live="polite"><span class="dot"></span><span class="text">UI Preview</span></div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-right">
+        <span class="live-badge hidden">🔴 <span class="live-label">LIVE</span><span class="live-count">👁 0</span></span>
+        <button class="pill" disabled>👥 0</button>
+        <button class="profile-chip" disabled><span class="chip-avatar">?</span><span class="chip-name">Preview</span></button>
+      </div>
+    </header>
+    <main class="stage">
+      <div class="mainVideoContainer">
+        <video id="localMainVideo" autoplay muted playsinline></video>
+      </div>
+      <div class="Channel"></div>
+    </main>
     <div class="controls">
-      <button disabled>Start 🎬</button>
-      <button disabled>🔇 Mute Audio</button>
-      <button disabled>🎥 Mute Video</button>
-      <button disabled>🔄 Switch Camera</button>
-      <button disabled>🖥️ Share Screen</button>
-      <button disabled>📞 Hang Up</button>
-    </div>
-    <div class="sub-control">
-      <label>Select quality:</label>
-      <div class="radio-group">
-        <label>160x120</label>
-        <label>320x240</label>
-        <label>640x480</label>
-      </div>
-      <label>Select framerate:</label>
-      <div class="radio-group">
-        <label>10</label>
-        <label>20</label>
-        <label>30</label>
+      <div class="btnList">
+        <button class="action-btn action-primary" disabled><span class="action-icon">📞</span><span class="action-label">Start Call</span></button>
+        <button class="action-btn" disabled><span class="action-icon">🔇</span><span class="action-label">Mute Audio</span></button>
+        <button class="action-btn" disabled><span class="action-icon">🎥</span><span class="action-label">Mute Video</span></button>
+        <button class="action-btn" disabled><span class="action-icon">🔄</span><span class="action-label">Switch Camera</span></button>
+        <button class="action-btn" disabled><span class="action-icon">🖥️</span><span class="action-label">Share Screen</span></button>
+        <button class="action-btn" disabled><span class="action-icon">💬</span><span class="action-label">Chat</span></button>
+        <button class="action-btn" disabled><span class="action-icon">👥</span><span class="action-label">People</span></button>
+        <button class="action-btn action-danger" disabled><span class="action-icon">📞</span><span class="action-label">Hang Up</span></button>
       </div>
     </div>
-    <div style="text-align:center; margin-top:14px; opacity:.8">
+    <div style="text-align:center; margin-top:14px; opacity:.8; position:relative; z-index:1">
       <div style="margin-top:8px"><a href="./index.html" style="color:#3ea0ff">Back to App</a></div>
     </div>
   </div>

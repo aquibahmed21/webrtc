@@ -1,4 +1,4 @@
-var _a, _b, _c, _d;
+var _a, _b, _c, _d, _e, _f;
 /* empty css                       */
 /* empty css                 */
 (function polyfill() {
@@ -125,30 +125,54 @@ const __vitePreload = function preload(baseModule, deps, importerUrl) {
     return baseModule().catch(handlePreloadError);
   });
 };
-function createScaledrone(roomName, onOpen, onMessage) {
+function createScaledrone(roomName, onOpen, onMessage, callType = "video") {
   const userInfo2 = JSON.parse(window.localStorage.getItem("userInfo") || "{}");
   const CHANNEL_ID = "EoIG3R1I4JdyS4L1";
-  const ref = { drone: null, room: null };
+  const ref = {
+    drone: null,
+    room: null,
+    disconnect: () => {
+    },
+    reconnectNow: () => {
+    },
+    isOpen: () => false
+  };
   let drone2 = null;
   let room2 = null;
   let reconnectAttempts = 0;
   const maxReconnectDelayMs = 15e3;
+  let reconnectTimer = null;
+  let stopped = false;
+  let open = false;
   function connect() {
-    drone2 = new window.ScaleDrone(CHANNEL_ID, {
-      data: { userInfo: userInfo2 }
-    });
-    room2 = drone2.subscribe(roomName);
+    if (stopped) return;
+    open = false;
+    try {
+      drone2 = new window.ScaleDrone(CHANNEL_ID, {
+        data: { userInfo: userInfo2, callType }
+      });
+      room2 = drone2.subscribe(roomName);
+    } catch (e) {
+      console.error("Failed to initialize Scaledrone:", e);
+      scheduleReconnect();
+      return;
+    }
     ref.drone = drone2;
     ref.room = room2;
     drone2.on("open", (err) => {
+      if (stopped) return;
       reconnectAttempts = 0;
+      open = !err;
       onOpen && onOpen(err);
     });
-    room2.on("message", (msg) => onMessage && onMessage(msg));
+    room2.on("message", (msg) => {
+      if (!stopped) onMessage && onMessage(msg);
+    });
     drone2.on("error", (err) => {
       console.error("Scaledrone error:", err);
     });
     drone2.on("close", () => {
+      open = false;
       scheduleReconnect();
     });
     room2.on("error", (err) => {
@@ -156,12 +180,16 @@ function createScaledrone(roomName, onOpen, onMessage) {
     });
   }
   function scheduleReconnect() {
+    if (stopped) return;
+    if (reconnectTimer) return;
     if (!navigator.onLine) {
       window.addEventListener("online", handleOnlineOnce, { once: true });
       return;
     }
     const delay = Math.min(1e3 * Math.pow(2, reconnectAttempts++), maxReconnectDelayMs);
-    setTimeout(() => {
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      if (stopped) return;
       try {
         connect();
       } catch (e) {
@@ -171,9 +199,32 @@ function createScaledrone(roomName, onOpen, onMessage) {
     }, delay);
   }
   function handleOnlineOnce() {
+    if (stopped) return;
     scheduleReconnect();
   }
   connect();
+  ref.isOpen = () => open;
+  ref.disconnect = () => {
+    stopped = true;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    window.removeEventListener("online", handleOnlineOnce);
+    try {
+      if (drone2 && typeof drone2.close === "function") drone2.close();
+    } catch {
+    }
+  };
+  ref.reconnectNow = () => {
+    if (stopped) return;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    reconnectAttempts = 0;
+    if (!open) connect();
+  };
   return ref;
 }
 function showToast(type, message) {
@@ -208,7 +259,6 @@ function showToast(type, message) {
 }
 let chatMessages = [];
 let chatPanel = null;
-let chatToggle = null;
 let chatEditor = null;
 let fileInput = null;
 let replyContext = null;
@@ -220,60 +270,40 @@ function initializeChat() {
   loadChatHistory();
 }
 function createChatUI() {
-  var _a2;
-  chatToggle = document.createElement("button");
-  chatToggle.id = "chatToggle";
-  chatToggle.innerHTML = "💬 Chat";
-  chatToggle.title = "Toggle Chat";
-  const switchCamera2 = document.getElementById("switchCamera");
-  (_a2 = switchCamera2 == null ? void 0 : switchCamera2.parentNode) == null ? void 0 : _a2.insertBefore(chatToggle, switchCamera2.nextSibling);
-  chatPanel = document.createElement("div");
-  chatPanel.className = "chat-panel";
+  chatPanel = document.getElementById("drawerPaneChat");
+  if (!chatPanel) return;
   chatPanel.innerHTML = `
-    <div class="chat-header">
-      <span>Chat</span>
-      <button id="closeChat" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer;">×</button>
-    </div>
     <div class="chat-messages" id="chatMessages">
-      <div class="chat-message">
-        <div class="sender">System</div>
-        <div>Welcome to the chat! Type a message below.</div>
+      <div class="chat-message system">
+        <div class="content">Welcome to the chat! Type a message below.</div>
         <div class="time">${(/* @__PURE__ */ new Date()).toLocaleTimeString()}</div>
       </div>
     </div>
     <div class="chat-input">
-      <div style="display:flex;gap:6px;width:100%;align-items:center;justify-content: flex-end;">
-        <div id="chatToolbar" style="display:flex; gap:6px;">
-          <button id="btnBold" title="Bold" style="flex:unset; padding:4px 8px;">B</button>
-          <button id="btnItalic" title="Italic" style="flex:unset; padding:4px 8px;"><i>I</i></button>
-          <button id="btnEmoji" title="Emoji" style="flex:unset; padding:4px 8px;">😊</button>
-          <button id="btnAttach" title="Attach file" style="flex:unset; padding:4px 8px; display:none;">📎</button>
+      <div class="chat-toolbar-row">
+        <div id="chatToolbar" class="chat-toolbar">
+          <button id="btnBold" title="Bold">B</button>
+          <button id="btnItalic" title="Italic"><i>I</i></button>
+          <button id="btnEmoji" title="Emoji">😊</button>
+          <button id="btnAttach" title="Attach file" style="display:none;">📎</button>
           <input id="fileInput" type="file" multiple style="display:none;" />
         </div>
-        <div id="replyContext" style="display:none; font-size:0.8rem; opacity:0.8; background: var(--bg-secondary); padding:2px 6px; border-radius:6px;"></div>
+        <div id="replyContext" class="reply-context hidden"></div>
       </div>
-      <div id="chatEditor" contenteditable="true" placeholder="Type a message..." style="flex:1; min-height:44px; max-height:140px; overflow:auto; padding:8px; border: 1px solid var(--border-primary); border-radius: var(--radius-small); background: var(--bg-input);"></div>
-      <button id="sendMessage">Send</button>
-      <div id="emojiMenu" style="display:none; position:absolute; background: var(--bg-panel); padding:6px; border-radius:8px; box-shadow: var(--shadow-soft); gap:4px;"></div>
+      <div class="chat-composer-row">
+        <div id="chatEditor" contenteditable="true" data-placeholder="Type a message..."></div>
+        <button id="sendMessage" class="send-btn" title="Send message">➤</button>
+      </div>
+      <div id="emojiMenu" class="emoji-menu hidden"></div>
     </div>
   `;
-  document.body.appendChild(chatPanel);
   chatEditor = chatPanel.querySelector("#chatEditor");
   fileInput = chatPanel.querySelector("#fileInput");
   replyContext = chatPanel.querySelector("#replyContext");
   emojiMenu = chatPanel.querySelector("#emojiMenu");
 }
 function setupChatEventListeners() {
-  var _a2, _b2, _c2, _d2, _e;
-  chatToggle == null ? void 0 : chatToggle.addEventListener("click", () => {
-    chatPanel == null ? void 0 : chatPanel.classList.toggle("active");
-    if (chatPanel == null ? void 0 : chatPanel.classList.contains("active")) {
-      chatEditor == null ? void 0 : chatEditor.focus();
-    }
-  });
-  (_a2 = document.getElementById("closeChat")) == null ? void 0 : _a2.addEventListener("click", () => {
-    chatPanel == null ? void 0 : chatPanel.classList.remove("active");
-  });
+  var _a2, _b2, _c2, _d2;
   const sendButton = document.getElementById("sendMessage");
   sendButton == null ? void 0 : sendButton.addEventListener("click", sendMessage);
   chatEditor == null ? void 0 : chatEditor.addEventListener("keypress", (e) => {
@@ -290,10 +320,10 @@ function setupChatEventListeners() {
       chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
     }
   });
-  (_b2 = document.getElementById("btnBold")) == null ? void 0 : _b2.addEventListener("click", () => execCmd("bold"));
-  (_c2 = document.getElementById("btnItalic")) == null ? void 0 : _c2.addEventListener("click", () => execCmd("italic"));
-  (_d2 = document.getElementById("btnAttach")) == null ? void 0 : _d2.addEventListener("click", () => fileInput == null ? void 0 : fileInput.click());
-  (_e = document.getElementById("btnEmoji")) == null ? void 0 : _e.addEventListener("click", toggleEmojiMenu);
+  (_a2 = document.getElementById("btnBold")) == null ? void 0 : _a2.addEventListener("click", () => execCmd("bold"));
+  (_b2 = document.getElementById("btnItalic")) == null ? void 0 : _b2.addEventListener("click", () => execCmd("italic"));
+  (_c2 = document.getElementById("btnAttach")) == null ? void 0 : _c2.addEventListener("click", () => fileInput == null ? void 0 : fileInput.click());
+  (_d2 = document.getElementById("btnEmoji")) == null ? void 0 : _d2.addEventListener("click", toggleEmojiMenu);
   fileInput == null ? void 0 : fileInput.addEventListener("change", handleFileSelection);
 }
 async function sendMessage() {
@@ -338,23 +368,26 @@ function addMessageToChat(messageData, isOwn = false) {
     const replied = chatMessages.find((m) => m.id === messageData.replyTo);
     if (replied) {
       const replyText = (replied.text || "").slice(0, 120);
-      replyHtml = `<div style="font-size:0.75rem; opacity:0.8; border-left:2px solid var(--border-primary); padding-left:6px; margin-bottom:4px;">Replying to <b>${escapeHtml$3(replied.sender)}</b>: ${escapeHtml$3(replyText)}</div>`;
+      replyHtml = `<div class="reply-preview">Replying to <b>${escapeHtml$4(replied.sender)}</b>: ${escapeHtml$4(replyText)}</div>`;
     }
   }
   const attachmentsHtml = (messageData.attachments || []).map((att) => renderAttachment(att)).join("");
-  const reactionsBar = `<div class="reactions" style="margin-top:6px; display:flex; gap:6px; align-items:center;">
-      <button class="reactBtn" data-emoji="👍" title="Like" style="flex:unset; padding:2px 6px;">👍</button>
-      <button class="reactBtn" data-emoji="❤️" title="Love" style="flex:unset; padding:2px 6px;">❤️</button>
-      <button class="reactBtn" data-emoji="😂" title="Haha" style="flex:unset; padding:2px 6px;">😂</button>
-      <button class="replyBtn" title="Reply" style="flex:unset; padding:2px 6px;">↩︎ Reply</button>
-      <span class="reactionsDisplay" style="margin-left:auto; font-size:0.9rem;"></span>
+  const reactionsBar = `<div class="reactions">
+      <button class="reactBtn" data-emoji="👍" title="Like">👍</button>
+      <button class="reactBtn" data-emoji="❤️" title="Love">❤️</button>
+      <button class="reactBtn" data-emoji="😂" title="Haha">😂</button>
+      <button class="replyBtn" title="Reply">↩︎</button>
+      <span class="reactionsDisplay"></span>
     </div>`;
-  const contentHtml = messageData.type === "message" ? `<div class="sender">${escapeHtml$3(messageData.sender)}</div>
-       ${replyHtml}
-       <div class="content">${messageData.html || escapeHtml$3(messageData.text || "")}</div>
-       ${attachmentsHtml}
-       <div class="time">${time}</div>
-       ${reactionsBar}` : "";
+  const avatarInitial = (messageData.sender || "?").trim().charAt(0).toUpperCase() || "?";
+  const contentHtml = messageData.type === "message" ? `<div class="msg-avatar">${escapeHtml$4(avatarInitial)}</div>
+       <div class="msg-body">
+         <div class="msg-header"><span class="sender">${escapeHtml$4(messageData.sender)}</span><span class="time">${time}</span></div>
+         ${replyHtml}
+         <div class="content">${messageData.html || escapeHtml$4(messageData.text || "")}</div>
+         ${attachmentsHtml}
+         ${reactionsBar}
+       </div>` : "";
   if (contentHtml) messageElement.innerHTML = contentHtml;
   chatMessagesContainer == null ? void 0 : chatMessagesContainer.appendChild(messageElement);
   if (chatMessagesContainer) {
@@ -430,7 +463,7 @@ function sendDirectMessage(toMemberId, message) {
   }).catch(() => {
   });
 }
-function escapeHtml$3(text) {
+function escapeHtml$4(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
@@ -582,7 +615,7 @@ function compressImageDataUrl(dataUrl, maxW = 900, maxH = 900, quality2 = 0.7) {
   });
 }
 function renderAttachment(att) {
-  const safeName = escapeHtml$3(att.name || "file");
+  const safeName = escapeHtml$4(att.name || "file");
   if ((att.type || "").startsWith("image/")) {
     return `<div style="margin-top:6px;"><img src="${att.dataUrl}" alt="${safeName}" style="max-width:200px; border-radius:6px;" /></div>`;
   }
@@ -715,6 +748,16 @@ let pcInfo = null;
 let drone = null;
 let room = null;
 let signallingRef = null;
+let currentOnRemoteTrack = null;
+let currentRoomName = "";
+let networkListenersBound = false;
+let reconnectInFlight = false;
+const restartInProgress = {};
+const restartTimers = {};
+const restartAttempts = {};
+const ICE_DISCONNECT_GRACE_MS = 4e3;
+const ICE_RESTART_MAX_BACKOFF_MS = 6e3;
+const ICE_RESTART_MAX_ATTEMPTS = 4;
 const connectionStatus = {
   onChange: null,
   // function(status: 'connected'|'reconnecting'|'disconnected')
@@ -731,307 +774,389 @@ const iceServers = [
   }
 ];
 const configuration = { iceServers };
-function setupRoom(localStreamRef, onRemoteTrack) {
+function setupRoom(localStreamRef, onRemoteTrack, callType = "video") {
   localStream$1 = localStreamRef;
-  const ROOM_NAME = localStorage.getItem("roomName") || "observable-e7b2d4";
-  signallingRef = createScaledrone(ROOM_NAME, handleOpen, handleMessage);
+  currentOnRemoteTrack = onRemoteTrack;
+  currentRoomName = localStorage.getItem("roomName") || "observable-e7b2d4";
+  signallingRef = createScaledrone(currentRoomName, handleOpen, handleMessage, callType);
   drone = signallingRef.drone;
   room = signallingRef.room;
+  ensureNetworkListeners();
+}
+function ensureNetworkListeners() {
+  if (networkListenersBound) return;
+  networkListenersBound = true;
   window.addEventListener("online", () => {
+    if (!signallingRef) return;
     showToast("Info", "Network connected. Attempting to reconnect...");
     connectionStatus.set("reconnecting");
-    attemptReconnect(onRemoteTrack);
+    if (signallingRef.isOpen()) {
+      attemptReconnect();
+    } else {
+      signallingRef.reconnectNow();
+    }
   });
   window.addEventListener("offline", () => {
+    if (!signallingRef) return;
     showToast("Error", "Network disconnected. Trying to recover...");
     connectionStatus.set("disconnected");
   });
-  function handleOpen(error) {
-    if (error) return console.error(error);
-    drone = signallingRef.drone;
-    room = signallingRef.room;
-    bindRoomEvents(onRemoteTrack);
-    attemptReconnect(onRemoteTrack);
-    connectionStatus.set("connected");
-    console.log("Connected to Scaledrone");
-  }
-  function enqueueOrAddCandidate(id, candidate) {
-    if (!candidateQueues[id]) candidateQueues[id] = [];
-    const pc = peerConnections[id];
-    if (pc && pc.remoteDescription && pc.remoteDescription.type) {
-      try {
-        pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) {
-        console.warn("addIceCandidate failed, queueing:", e);
-        candidateQueues[id].push(candidate);
-      }
-    } else {
+}
+function handleOpen(error) {
+  if (error) return console.error(error);
+  if (!signallingRef) return;
+  drone = signallingRef.drone;
+  room = signallingRef.room;
+  bindRoomEvents();
+  attemptReconnect();
+  connectionStatus.set("connected");
+  console.log("Connected to Scaledrone");
+}
+function enqueueOrAddCandidate(id, candidate) {
+  if (!candidateQueues[id]) candidateQueues[id] = [];
+  const pc = peerConnections[id];
+  if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+    try {
+      pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (e) {
+      console.warn("addIceCandidate failed, queueing:", e);
       candidateQueues[id].push(candidate);
     }
+  } else {
+    candidateQueues[id].push(candidate);
   }
-  async function drainCandidateQueue(id) {
-    const pc = peerConnections[id];
-    if (!pc || !pc.remoteDescription || !candidateQueues[id] || candidateQueues[id].length === 0) return;
-    const queue = candidateQueues[id];
-    while (queue.length) {
-      const cand = queue.shift();
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(cand));
-      } catch (e) {
-        console.warn("Failed to add queued ICE candidate:", e);
-      }
+}
+async function drainCandidateQueue(id) {
+  const pc = peerConnections[id];
+  if (!pc || !pc.remoteDescription || !candidateQueues[id] || candidateQueues[id].length === 0) return;
+  const queue = candidateQueues[id];
+  while (queue.length) {
+    const cand = queue.shift();
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(cand));
+    } catch (e) {
+      console.warn("Failed to add queued ICE candidate:", e);
     }
   }
-  function handleMessage(message) {
-    var _a2, _b2, _c2, _d2, _e, _f, _g, _h, _i;
-    const { data } = message || {};
-    const member = (message == null ? void 0 : message.member) || {};
-    const senderId = (_a2 = message == null ? void 0 : message.member) == null ? void 0 : _a2.id;
-    console.log({ data });
-    if (!data) return;
-    if (!drone) return;
-    if (!senderId || senderId === drone.clientId) return;
-    switch (data.type) {
-      case "offer":
-        createPeerConnection(senderId, false, onRemoteTrack);
-        peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.offer)).then(async () => {
-          const answer = await peerConnections[senderId].createAnswer();
-          await peerConnections[senderId].setLocalDescription(answer);
-          drone.publish({ room: ROOM_NAME, message: { type: "answer", answer, to: senderId, userInfo: userInfo$2 } });
+}
+function handleMessage(message) {
+  var _a2, _b2, _c2;
+  const { data } = message || {};
+  const member = (message == null ? void 0 : message.member) || {};
+  const senderId = (_a2 = message == null ? void 0 : message.member) == null ? void 0 : _a2.id;
+  console.log({ data });
+  if (!data) return;
+  if (!drone) return;
+  if (!senderId || senderId === drone.clientId) return;
+  switch (data.type) {
+    case "offer":
+      createPeerConnection(senderId, false);
+      peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.offer)).then(async () => {
+        const answer = await peerConnections[senderId].createAnswer();
+        await peerConnections[senderId].setLocalDescription(answer);
+        drone.publish({ room: currentRoomName, message: { type: "answer", answer, to: senderId, userInfo: userInfo$2 } });
+        await drainCandidateQueue(senderId);
+      }).catch((e) => console.error("Failed to handle offer from", senderId, e));
+      break;
+    case "answer":
+      if (data.to === drone.clientId && peerConnections[senderId]) {
+        peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.answer)).then(async () => {
           await drainCandidateQueue(senderId);
-        });
-        break;
-      case "answer":
-        if (data.to === drone.clientId && peerConnections[senderId]) {
-          peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.answer)).then(async () => {
-            await drainCandidateQueue(senderId);
+        }).catch((e) => console.error("Failed to handle answer from", senderId, e));
+      }
+      break;
+    case "candidate":
+      if (data.to === drone.clientId) {
+        enqueueOrAddCandidate(senderId, data.candidate);
+      }
+      break;
+    case "leave":
+      console.log(senderId, "has left the room");
+      removeMember(senderId);
+      break;
+    case "join":
+      if (!membersList.find((m) => m.id === member.id))
+        membersList.push(member);
+      console.log(senderId, "has joined the room");
+      createPeerConnection(senderId, true);
+      break;
+    case "screenShare":
+      {
+        const videoEl = document.getElementById(senderId);
+        if (videoEl)
+          data.isShared === true ? videoEl.setAttribute("screenShare", "true") : videoEl.removeAttribute("screenShare");
+      }
+      break;
+    case "chat":
+      if (data.messageData) {
+        receiveChatMessage(data.messageData);
+      }
+      break;
+    case "dm":
+      try {
+        if (data.to === drone.clientId && data.messageData) {
+          __vitePreload(async () => {
+            const { receiveDirectMessage: receiveDirectMessage2 } = await Promise.resolve().then(() => users);
+            return { receiveDirectMessage: receiveDirectMessage2 };
+          }, true ? void 0 : void 0).then(({ receiveDirectMessage: receiveDirectMessage2 }) => {
+            if (typeof receiveDirectMessage2 === "function") {
+              receiveDirectMessage2(data.messageData, data.fromUserInfo);
+            }
+          }).catch(() => {
           });
         }
-        break;
-      case "candidate":
-        if (data.to === drone.clientId) {
-          enqueueOrAddCandidate(senderId, data.candidate);
-        }
-        break;
-      case "leave":
-        console.log(senderId, "has left the room");
-        const index = membersList.findIndex((memberObj) => member.id === memberObj.id);
-        const videoEl = document.getElementById(senderId);
-        if (videoEl) {
-          (_b2 = videoEl.parentElement) == null ? void 0 : _b2.remove();
-          if (index > -1)
-            showToast("Info", ((_e = (_d2 = (_c2 = membersList[index]) == null ? void 0 : _c2.clientData) == null ? void 0 : _d2.userInfo) == null ? void 0 : _e.nickname) + " has left the room!");
-        }
-        membersList.splice(index, 1);
-        if (peerConnections[senderId]) {
-          peerConnections[senderId].close();
-          delete peerConnections[senderId];
-        }
-        delete candidateQueues[senderId];
-        __vitePreload(async () => {
-          const { removeRemoteAudioContext: removeRemoteAudioContext2 } = await Promise.resolve().then(() => media);
-          return { removeRemoteAudioContext: removeRemoteAudioContext2 };
-        }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(senderId)).catch(() => {
-        });
-        if (document.querySelector(".Channel").childElementCount === 1)
-          (_g = (_f = document.querySelector(".Channel")) == null ? void 0 : _f.children[0]) == null ? void 0 : _g.querySelector("video").click();
-        break;
-      case "join":
-        if (!membersList.find((m) => m.id === member.id))
-          membersList.push(member);
-        console.log(senderId, "has joined the room");
-        createPeerConnection(senderId, true, onRemoteTrack);
-        break;
-      case "screenShare":
-        {
-          const videoEl2 = document.getElementById(senderId);
-          if (videoEl2)
-            data.isShared === true ? videoEl2.setAttribute("screenShare", "true") : videoEl2.removeAttribute("screenShare");
-        }
-        break;
-      case "chat":
-        if (data.messageData) {
-          receiveChatMessage(data.messageData);
-        }
-        break;
-      case "dm":
-        try {
-          if (data.to === drone.clientId && data.messageData) {
-            __vitePreload(async () => {
-              const { receiveDirectMessage: receiveDirectMessage2 } = await Promise.resolve().then(() => users);
-              return { receiveDirectMessage: receiveDirectMessage2 };
-            }, true ? void 0 : void 0).then(({ receiveDirectMessage: receiveDirectMessage2 }) => {
-              if (typeof receiveDirectMessage2 === "function") {
-                receiveDirectMessage2(data.messageData, data.fromUserInfo);
-              }
-            }).catch(() => {
-            });
+      } catch {
+      }
+      break;
+    case "invite":
+      try {
+        if (data.to === drone.clientId && data.roomName) {
+          const inviter = ((_c2 = (_b2 = membersList.find((m) => m.id === senderId)) == null ? void 0 : _b2.clientData) == null ? void 0 : _c2.userInfo.nickname) || "Someone";
+          const join = confirm(`${inviter} invited you to join room "${data.roomName}". Join now?`);
+          if (join) {
+            localStorage.setItem("roomName", data.roomName);
+            showToast("Info", `Joining room ${data.roomName}...`);
+            setTimeout(() => location.reload(), 300);
           }
-        } catch {
         }
-        break;
-      case "invite":
-        try {
-          if (data.to === drone.clientId && data.roomName) {
-            const inviter = ((_i = (_h = membersList.find((m) => m.id === senderId)) == null ? void 0 : _h.clientData) == null ? void 0 : _i.userInfo.nickname) || "Someone";
-            const join = confirm(`${inviter} invited you to join room "${data.roomName}". Join now?`);
-            if (join) {
-              localStorage.setItem("roomName", data.roomName);
-              showToast("Info", `Joining room ${data.roomName}...`);
-              setTimeout(() => location.reload(), 300);
-            }
-          }
-        } catch {
-        }
-        break;
-      default:
-        console.warn("Unknown data type:", data.type);
-        showToast("Warning", "Unknown data type: " + data.type);
-    }
+      } catch {
+      }
+      break;
+    default:
+      console.warn("Unknown data type:", data.type);
+      showToast("Warning", "Unknown data type: " + data.type);
   }
-  function bindRoomEvents(onRemoteTrackCb) {
-    if (!room) return;
-    room.on("members", (members) => {
-      console.log("Members connected:", members);
-      members.forEach((member) => {
-        if (member.id !== drone.clientId) {
-          if (!membersList.find((m) => m.id === member.id)) membersList.push(member);
-          if (!peerConnections[member.id]) {
-            createPeerConnection(member.id, true, onRemoteTrackCb);
-          }
+}
+function bindRoomEvents() {
+  if (!room) return;
+  room.on("members", (members) => {
+    console.log("Members connected:", members);
+    const incomingIds = new Set(members.map((m) => m.id));
+    members.forEach((member) => {
+      if (member.id !== drone.clientId) {
+        if (!membersList.find((m) => m.id === member.id)) membersList.push(member);
+        if (!peerConnections[member.id]) {
+          createPeerConnection(member.id, true);
         }
+      }
+    });
+    membersList.filter((m) => m.id !== drone.clientId && !incomingIds.has(m.id)).map((m) => m.id).forEach((id) => removeMember(id));
+    notifyMemberSubscribers();
+  });
+  room.on("member_join", (member) => {
+    var _a2;
+    if (!membersList.find((m) => m.id === member.id)) membersList.push(member);
+    console.log("Member joined:", (_a2 = member.clientData) == null ? void 0 : _a2.userInfo.nickname);
+    if (!peerConnections[member.id]) {
+      createPeerConnection(member.id, false);
+    }
+    notifyMemberSubscribers();
+  });
+  room.on("member_leave", (memberObj) => {
+    var _a2, _b2, _c2;
+    console.log("Member left:", (_c2 = (_b2 = (_a2 = membersList.find((m) => m.id === memberObj.id)) == null ? void 0 : _a2.clientData) == null ? void 0 : _b2.userInfo) == null ? void 0 : _c2.nickname);
+    removeMember(memberObj.id);
+    notifyMemberSubscribers();
+  });
+}
+function removeMember(id) {
+  var _a2, _b2, _c2, _d2, _e2, _f2;
+  const index = membersList.findIndex((m) => m.id === id);
+  const nickname = index > -1 ? (_c2 = (_b2 = (_a2 = membersList[index]) == null ? void 0 : _a2.clientData) == null ? void 0 : _b2.userInfo) == null ? void 0 : _c2.nickname : void 0;
+  const videoEl = document.getElementById(id);
+  if (videoEl) {
+    (_d2 = videoEl.parentElement) == null ? void 0 : _d2.remove();
+    if (nickname) showToast("Info", nickname + " has left the room!");
+  }
+  if (index > -1) membersList.splice(index, 1);
+  clearIceRestartState(id);
+  if (peerConnections[id]) {
+    try {
+      peerConnections[id].close();
+    } catch {
+    }
+    delete peerConnections[id];
+  }
+  delete candidateQueues[id];
+  __vitePreload(async () => {
+    const { removeRemoteAudioContext: removeRemoteAudioContext2 } = await Promise.resolve().then(() => media);
+    return { removeRemoteAudioContext: removeRemoteAudioContext2 };
+  }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(id)).catch(() => {
+  });
+  if (document.querySelector(".Channel").childElementCount === 1)
+    (_f2 = (_e2 = document.querySelector(".Channel")) == null ? void 0 : _e2.children[0]) == null ? void 0 : _f2.querySelector("video").click();
+}
+function clearIceRestartState(id) {
+  if (restartTimers[id]) {
+    clearTimeout(restartTimers[id]);
+    delete restartTimers[id];
+  }
+  delete restartInProgress[id];
+  delete restartAttempts[id];
+}
+function refreshOverallConnectionStatus() {
+  if (!navigator.onLine) {
+    connectionStatus.set("disconnected");
+    return;
+  }
+  const pcs = Object.values(peerConnections);
+  if (pcs.length === 0) {
+    connectionStatus.set((signallingRef == null ? void 0 : signallingRef.isOpen()) ? "connected" : "reconnecting");
+    return;
+  }
+  const allHealthy = pcs.every(
+    (pc) => pc.connectionState === "connected" || pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed"
+  );
+  connectionStatus.set(allHealthy ? "connected" : "reconnecting");
+}
+function handleConnectivityIssue(pc, id, immediate) {
+  if (peerConnections[id] !== pc) return;
+  if (restartInProgress[id] || restartTimers[id]) return;
+  if (immediate) {
+    void attemptIceRestart(pc, id);
+    return;
+  }
+  restartTimers[id] = setTimeout(() => {
+    delete restartTimers[id];
+    if (peerConnections[id] !== pc) return;
+    const state = pc.iceConnectionState;
+    if (state === "failed" || state === "disconnected") void attemptIceRestart(pc, id);
+  }, ICE_DISCONNECT_GRACE_MS);
+}
+async function createPeerConnection(id, isInitiator) {
+  if (peerConnections[id] && peerConnections[id].connectionState && peerConnections[id].connectionState !== "closed") {
+    return;
+  }
+  const pc = pcInfo = new RTCPeerConnection(configuration);
+  peerConnections[id] = pc;
+  clearIceRestartState(id);
+  if (localStream$1)
+    localStream$1.getTracks().forEach((track) => pc.addTrack(track, localStream$1));
+  pc.onicecandidate = (event) => {
+    if (event.candidate && drone) {
+      drone.publish({
+        room: currentRoomName,
+        message: { type: "candidate", candidate: event.candidate, to: id, userInfo: userInfo$2 }
       });
-      notifyMemberSubscribers();
-    });
-    room.on("member_join", (member) => {
-      var _a2;
-      if (!membersList.find((m) => m.id === member.id)) membersList.push(member);
-      console.log("Member joined:", (_a2 = member.clientData) == null ? void 0 : _a2.userInfo.nickname);
-      if (!peerConnections[member.id]) {
-        createPeerConnection(member.id, false, onRemoteTrackCb);
-      }
-      notifyMemberSubscribers();
-    });
-    room.on("member_leave", (memberObj) => {
-      var _a2, _b2, _c2, _d2;
-      const index = membersList.findIndex((member) => member.id === memberObj.id);
-      console.log("Member left:", (_c2 = (_b2 = (_a2 = membersList[index]) == null ? void 0 : _a2.clientData) == null ? void 0 : _b2.userInfo) == null ? void 0 : _c2.nickname);
-      const videoEl = document.getElementById(memberObj.id);
-      if (videoEl) {
-        (_d2 = videoEl.parentElement) == null ? void 0 : _d2.remove();
-        if (index > -1)
-          showToast("Info", membersList[index].clientData.userInfo.nickname + " has left the room!");
-      }
-      membersList.splice(index, 1);
-      if (peerConnections[memberObj.id]) {
-        peerConnections[memberObj.id].close();
-        delete peerConnections[memberObj.id];
-      }
-      delete candidateQueues[memberObj.id];
+    }
+  };
+  pc.oniceconnectionstatechange = () => {
+    if (pc.iceConnectionState === "failed") {
+      connectionStatus.set("reconnecting");
+      handleConnectivityIssue(pc, id, true);
+    } else if (pc.iceConnectionState === "disconnected") {
+      connectionStatus.set("reconnecting");
+      handleConnectivityIssue(pc, id, false);
+    } else if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+      clearIceRestartState(id);
+      refreshOverallConnectionStatus();
+    } else if (pc.iceConnectionState === "closed") {
+      clearIceRestartState(id);
+      const el = document.getElementById(id);
+      if (el) el.remove();
       __vitePreload(async () => {
         const { removeRemoteAudioContext: removeRemoteAudioContext2 } = await Promise.resolve().then(() => media);
         return { removeRemoteAudioContext: removeRemoteAudioContext2 };
-      }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(memberObj.id)).catch(() => {
+      }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(id)).catch(() => {
       });
-      notifyMemberSubscribers();
-    });
+      showToast("Info", "User has left the room!");
+    }
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === "connected") {
+      clearIceRestartState(id);
+      refreshOverallConnectionStatus();
+    } else if (pc.connectionState === "failed") {
+      connectionStatus.set("reconnecting");
+      handleConnectivityIssue(pc, id, true);
+    } else if (pc.connectionState === "disconnected") {
+      connectionStatus.set("reconnecting");
+      handleConnectivityIssue(pc, id, false);
+    }
+  };
+  pc.onnegotiationneeded = () => {
+  };
+  pc.onsignalingstatechange = () => {
+  };
+  pc.ontrack = (event) => {
+    var _a2, _b2, _c2, _d2;
+    console.log("Track received:", event.track.kind);
+    console.log({ stream: event.streams[0], id, name: ((_a2 = membersList.find((member) => member.id === id)) == null ? void 0 : _a2.clientData.userInfo.nickname) || "" });
+    currentOnRemoteTrack == null ? void 0 : currentOnRemoteTrack(event.streams[0], id, ((_b2 = membersList.find((member) => member.id === id)) == null ? void 0 : _b2.clientData.userInfo.nickname) || "", getPeerCallType(id));
+    const index = membersList.findIndex((member) => member.id === id);
+    if (index > -1)
+      showToast("Info", ((_d2 = (_c2 = membersList[index].clientData) == null ? void 0 : _c2.userInfo) == null ? void 0 : _d2.nickname) + " has joined the room!");
+  };
+  if (isInitiator) {
+    try {
+      const offer = await createOfferWithPreferredCodec(pc);
+      if (offer && drone) {
+        drone.publish({ room: currentRoomName, message: { type: "offer", offer, to: id, userInfo: userInfo$2 } });
+      }
+    } catch (e) {
+      console.error("Failed to create/send offer to", id, e);
+    }
   }
-  async function createPeerConnection(id, isInitiator, onRemoteTrack2) {
-    if (peerConnections[id] && peerConnections[id].connectionState && peerConnections[id].connectionState !== "closed") {
+}
+async function attemptIceRestart(pc, id) {
+  if (peerConnections[id] !== pc) return;
+  restartInProgress[id] = true;
+  try {
+    if (pc.signalingState !== "stable") {
+      throw new Error("signalling busy: " + pc.signalingState);
+    }
+    showToast("Error", "Connection issue detected. Attempting to reconnect...");
+    const offer = await pc.createOffer({ iceRestart: true });
+    await pc.setLocalDescription(offer);
+    if (!drone) throw new Error("signalling channel unavailable");
+    drone.publish({ room: currentRoomName, message: { type: "offer", offer, to: id, userInfo: userInfo$2 } });
+    restartAttempts[id] = 0;
+    delete restartInProgress[id];
+  } catch (e) {
+    console.warn("ICE restart attempt failed for", id, e);
+    delete restartInProgress[id];
+    const attempts = (restartAttempts[id] || 0) + 1;
+    restartAttempts[id] = attempts;
+    if (attempts >= ICE_RESTART_MAX_ATTEMPTS) {
+      console.error("ICE restart failed repeatedly for", id, "- falling back to full reconnection.");
+      showToast("Error", "ICE restart failed repeatedly. Attempting full reconnection.");
+      restartAttempts[id] = 0;
+      attemptReconnect();
       return;
     }
-    const pc = pcInfo = new RTCPeerConnection(configuration);
-    if (localStream$1)
-      localStream$1.getTracks().forEach((track) => pc.addTrack(track, localStream$1));
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        drone.publish({
-          room: ROOM_NAME,
-          message: { type: "candidate", candidate: event.candidate, to: id, userInfo: userInfo$2 }
-        });
-      }
-    };
-    pc.oniceconnectionstatechange = async () => {
-      if (pc.iceConnectionState === "failed") {
-        connectionStatus.set("reconnecting");
-        showToast("Error", "Connection failed. Attempting ICE restart...");
-        await attemptIceRestart(pc, id, ROOM_NAME);
-      } else if (pc.iceConnectionState === "disconnected") {
-        connectionStatus.set("reconnecting");
-        showToast("Error", "Connection disconnected. Retrying...");
-        await attemptIceRestart(pc, id, ROOM_NAME);
-      } else if (pc.iceConnectionState === "closed") {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-        __vitePreload(async () => {
-          const { removeRemoteAudioContext: removeRemoteAudioContext2 } = await Promise.resolve().then(() => media);
-          return { removeRemoteAudioContext: removeRemoteAudioContext2 };
-        }, true ? void 0 : void 0).then(({ removeRemoteAudioContext: removeRemoteAudioContext2 }) => removeRemoteAudioContext2(id)).catch(() => {
-        });
-        showToast("Info", "User has left the room!");
-      }
-    };
-    pc.onconnectionstatechange = async () => {
-      if (pc.connectionState === "connected") {
-        connectionStatus.set("connected");
-      }
-      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-        connectionStatus.set("reconnecting");
-        await attemptIceRestart(pc, id, ROOM_NAME);
-      }
-    };
-    pc.onnegotiationneeded = () => {
-    };
-    pc.onsignalingstatechange = () => {
-    };
-    pc.ontrack = (event) => {
-      var _a2, _b2, _c2, _d2;
-      console.log("Track received:", event.track.kind);
-      console.log({ stream: event.streams[0], id, name: ((_a2 = membersList.find((member) => member.id === id)) == null ? void 0 : _a2.clientData.userInfo.nickname) || "" });
-      onRemoteTrack2(event.streams[0], id, ((_b2 = membersList.find((member) => member.id === id)) == null ? void 0 : _b2.clientData.userInfo.nickname) || "");
-      const index = membersList.findIndex((member) => member.id === id);
-      if (index > -1)
-        showToast("Info", ((_d2 = (_c2 = membersList[index].clientData) == null ? void 0 : _c2.userInfo) == null ? void 0 : _d2.nickname) + " has joined the room!");
-    };
-    if (isInitiator) {
-      const offer = await createOfferWithPreferredCodec(pc);
-      if (offer) {
-        drone.publish({ room: ROOM_NAME, message: { type: "offer", offer, to: id, userInfo: userInfo$2 } });
-      }
-    }
-    peerConnections[id] = pc;
+    const delay = Math.min(1500 * attempts, ICE_RESTART_MAX_BACKOFF_MS);
+    restartTimers[id] = setTimeout(() => {
+      delete restartTimers[id];
+      if (peerConnections[id] !== pc) return;
+      const state = pc.iceConnectionState;
+      if (state === "failed" || state === "disconnected") void attemptIceRestart(pc, id);
+    }, delay);
   }
-  async function attemptIceRestart(pc, id, roomName) {
-    try {
-      const offer = await pc.createOffer({ iceRestart: true });
-      await pc.setLocalDescription(offer);
-      drone.publish({ room: roomName, message: { type: "offer", offer, to: id, userInfo: userInfo$2 } });
-    } catch (e) {
-      console.error("ICE restart failed:", e);
-      showToast("Error", "ICE restart failed. Will attempt full reconnection.");
-      attemptReconnect(onRemoteTrack);
-    }
-  }
-  function attemptReconnect(onRemoteTrackCb) {
-    try {
-      Object.keys(peerConnections).forEach((peerId) => {
-        try {
-          if (peerConnections[peerId]) {
-            peerConnections[peerId].close();
-            delete peerConnections[peerId];
-          }
-        } catch {
+}
+function attemptReconnect() {
+  if (reconnectInFlight) return;
+  reconnectInFlight = true;
+  try {
+    Object.keys(peerConnections).forEach((peerId) => {
+      try {
+        clearIceRestartState(peerId);
+        if (peerConnections[peerId]) {
+          peerConnections[peerId].close();
+          delete peerConnections[peerId];
         }
-      });
-      Object.keys(candidateQueues).forEach((id) => delete candidateQueues[id]);
-      membersList.forEach((member) => {
-        if (drone && member.id !== drone.clientId) {
-          createPeerConnection(member.id, true, onRemoteTrackCb);
-        }
-      });
-    } catch (e) {
-      console.error("Reconnect attempt failed:", e);
-    }
+      } catch {
+      }
+    });
+    Object.keys(candidateQueues).forEach((id) => delete candidateQueues[id]);
+    membersList.forEach((member) => {
+      if (drone && member.id !== drone.clientId) {
+        createPeerConnection(member.id, true).catch((e) => console.error("Failed to reconnect to peer", member.id, e));
+      }
+    });
+  } catch (e) {
+    console.error("Reconnect attempt failed:", e);
+  } finally {
+    reconnectInFlight = false;
   }
 }
 function getPeerConnections() {
@@ -1045,6 +1170,16 @@ function getPeerName(peerId) {
     return ((_a2 = m == null ? void 0 : m.clientData) == null ? void 0 : _a2.userInfo.nickname) || "";
   } catch {
     return "";
+  }
+}
+function getPeerCallType(peerId) {
+  var _a2;
+  try {
+    if (!peerId) return void 0;
+    const m = membersList.find((x) => (x == null ? void 0 : x.id) === peerId);
+    return (_a2 = m == null ? void 0 : m.clientData) == null ? void 0 : _a2.callType;
+  } catch {
+    return void 0;
   }
 }
 function notifyMemberSubscribers() {
@@ -1087,20 +1222,21 @@ function getMembers() {
 }
 function manualReconnect() {
   const localVideo = document.getElementById("localVideo");
-  const hasLocalStream = !!localVideo;
-  if (hasLocalStream) {
-    if (typeof window !== "undefined") {
-      const evt = new Event("online");
-      window.dispatchEvent(evt);
-    }
-  } else {
+  if (!localVideo) {
     showToast("Warning", "Start the call first to reconnect.");
+    return;
+  }
+  if (signallingRef && !signallingRef.isOpen()) {
+    signallingRef.reconnectNow();
+  } else {
+    attemptReconnect();
   }
 }
 function destroyConnections() {
   try {
     Object.keys(peerConnections).forEach((peerId) => {
       try {
+        clearIceRestartState(peerId);
         if (peerConnections[peerId]) {
           peerConnections[peerId].close();
           delete peerConnections[peerId];
@@ -1120,9 +1256,11 @@ function destroyConnections() {
     }
     pcInfo = null;
     try {
-      if (drone && typeof drone.close === "function") drone.close();
+      signallingRef == null ? void 0 : signallingRef.disconnect();
     } catch {
     }
+    signallingRef = null;
+    reconnectInFlight = false;
     drone = null;
     room = null;
   } catch {
@@ -1136,6 +1274,7 @@ const room$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
     return drone;
   },
   getMembers,
+  getPeerCallType,
   getPeerConnections,
   getPeerName,
   manualReconnect,
@@ -1156,8 +1295,16 @@ let localframeRate = 0;
 let localfacingMode = "user";
 let selectedVideoDeviceId = null;
 let selectedAudioDeviceId = null;
+let currentCallType = "video";
 function getCurrentLocalStream() {
   return localstream;
+}
+function resetLocalStreamState() {
+  localstream = null;
+  localwidth = 0;
+  localheight = 0;
+  localframeRate = 0;
+  currentCallType = "video";
 }
 function setSelectedDevices({ videoDeviceId, audioDeviceId }) {
   if (typeof videoDeviceId === "string") selectedVideoDeviceId = videoDeviceId || null;
@@ -1247,13 +1394,18 @@ if (framerate) {
     if (!await updateStream(localwidth, localheight, frameRateValue)) return;
   });
 }
+function setButtonLabel(button, text) {
+  const label = button.querySelector(".action-label");
+  if (label) label.textContent = text;
+  else button.textContent = text;
+}
 if (screenShare) {
   screenShare.addEventListener("click", async (event) => {
-    const target = event.target;
+    const target = event.currentTarget;
     const localVideo = document.querySelector("#localVideo");
     target.setAttribute("disabled", "true");
     if (target.getAttribute("isShared") === "true") {
-      target.textContent = "🖥️ Share Screen";
+      setButtonLabel(target, "Share Screen");
       target.setAttribute("isShared", "false");
       muteVideo$1 == null ? void 0 : muteVideo$1.removeAttribute("disabled");
       quality == null ? void 0 : quality.removeAttribute("disabled");
@@ -1275,7 +1427,7 @@ if (screenShare) {
     try {
       const screenStream = await startScreenShare();
       if (!screenStream) return;
-      target.textContent = "🖥️ Stop Sharing";
+      setButtonLabel(target, "Stop Sharing");
       target.setAttribute("isShared", "true");
       muteVideo$1 == null ? void 0 : muteVideo$1.setAttribute("disabled", "true");
       quality == null ? void 0 : quality.setAttribute("disabled", "true");
@@ -1310,13 +1462,20 @@ async function getMediaStream(width, height, frameRate, newFacing) {
     });
   }
   try {
+    const audioConstraints = selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true;
+    if (currentCallType === "audio") {
+      const newStream2 = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: localstream ? false : audioConstraints
+      });
+      return newStream2;
+    }
     const videoConstraints = selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : {
       width: { ideal: width },
       height: { ideal: height },
       frameRate: { ideal: frameRate },
       facingMode: { ideal: newFacing }
     };
-    const audioConstraints = selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true;
     const constraints = {
       video: videoConstraints,
       audio: localstream ? false : audioConstraints
@@ -1346,7 +1505,7 @@ async function updateStream(width, height, frameRate, isLocal = false, isToggle 
       oldTrack.stop();
       localstream.removeTrack(oldTrack);
     }
-    localstream.addTrack(newVideoTrack);
+    if (newVideoTrack) localstream.addTrack(newVideoTrack);
     if (newAudioTrack && localstream.getAudioTracks().length === 0) {
       localstream.addTrack(newAudioTrack);
     }
@@ -1372,7 +1531,8 @@ async function switchToSelectedDevices(videoDeviceId, audioDeviceId) {
   if (audioDeviceId) selectedAudioDeviceId = audioDeviceId;
   return await updateStream(localwidth, localheight, localframeRate, true, false);
 }
-async function getLocalStream() {
+async function getLocalStream(callType = "video") {
+  currentCallType = callType;
   const selectedOption = quality == null ? void 0 : quality.querySelector("input:checked");
   const [width, height] = ((selectedOption == null ? void 0 : selectedOption.value) || "640x480").split("x").map(Number);
   const framerateInput = framerate == null ? void 0 : framerate.querySelector("input:checked");
@@ -1380,14 +1540,23 @@ async function getLocalStream() {
   await updateStream(width, height, frameRateValue);
   return localstream;
 }
+function escapeHtml$3(text) {
+  const div = document.createElement("div");
+  div.textContent = text == null ? "" : String(text);
+  return div.innerHTML;
+}
 function createVideoElement(stream, id, isLocal = false, name = "") {
+  const hasVideo = stream.getVideoTracks().length > 0;
+  const initial = (name || "?").trim().charAt(0).toUpperCase() || "?";
   const div = document.createElement("div");
   div.className = "participant";
   div.setAttribute("data-id", id);
+  div.setAttribute("data-has-video", hasVideo ? "true" : "false");
   div.innerHTML = `<video autoplay playsinline></video>
+    <div class="avatar-placeholder"><span class="avatar-initial">${escapeHtml$3(initial)}</span></div>
     <div class="overlay">
-      <span class="name">${name}</span>
-      <div class="controls">
+      <span class="name">${escapeHtml$3(name)}</span>
+      <div class="tile-controls">
         <button class="muteAudio">🔇</button>
         <button class="muteVideo">🎥</button>
         <button class="switchCamera">🔄</button>
@@ -1718,7 +1887,7 @@ async function startScreenShare() {
     stream.getVideoTracks()[0].addEventListener("ended", () => {
       console.log("Screen sharing ended by user");
       if (screenShare) {
-        screenShare.textContent = "🖥️ Share Screen";
+        setButtonLabel(screenShare, "Share Screen");
         screenShare.setAttribute("isShared", "false");
         screenShare.removeAttribute("disabled");
       }
@@ -1747,6 +1916,7 @@ const media = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   getStoredAudioOutputId,
   isAudioOutputSwitchingSupported,
   removeRemoteAudioContext,
+  resetLocalStreamState,
   setAudioOutputDevice,
   setSelectedDevices,
   switchCamera,
@@ -1849,11 +2019,12 @@ function createThemeSelector() {
   return selector;
 }
 let usersPanel = null;
-let usersToggle = null;
 let membersUnsub = null;
+let initialized = false;
 function initializeUsersPanel() {
   try {
-    if (document.getElementById("usersToggle")) return;
+    if (initialized) return;
+    initialized = true;
     createUsersUI();
     membersUnsub = subscribeMembers(renderMembers);
     try {
@@ -1869,33 +2040,18 @@ function initializeUsersPanel() {
   }
 }
 function createUsersUI() {
-  var _a2, _b2, _c2;
-  usersToggle = document.createElement("button");
-  usersToggle.id = "usersToggle";
-  usersToggle.innerHTML = "👥 Users";
-  usersToggle.title = "Show Participants";
-  const pipBtn2 = document.getElementById("pipToggle") || document.getElementById("hangup");
-  (_a2 = pipBtn2 == null ? void 0 : pipBtn2.parentNode) == null ? void 0 : _a2.insertBefore(usersToggle, pipBtn2.nextSibling);
-  usersPanel = document.createElement("div");
-  usersPanel.className = "chat-panel";
-  usersPanel.style.zIndex = "1003";
-  usersPanel.style.right = "unset";
-  usersPanel.style.left = "unset";
+  var _a2;
+  usersPanel = document.getElementById("drawerPanePeople");
+  if (!usersPanel) return;
   usersPanel.innerHTML = `
-    <div class="chat-header"><span>Participants</span>
-      <button id="closeUsers" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer;">×</button>
-    </div>
-    <div class="chat-input" style="padding:6px; gap:6px;">
+    <div class="people-room-row">
       <input id="customRoomName" placeholder="Enter room name" maxlength="100" />
       <button id="setRoom">Set Room</button>
     </div>
-    <div class="chat-messages" id="usersList" style="gap:6px"></div>
-    <div class="chat-messages" id="roomsList" style="gap:6px; margin-top:6px;"></div>
+    <div class="chat-messages" id="usersList"></div>
+    <div class="chat-messages" id="roomsList" style="margin-top:6px;"></div>
   `;
-  document.body.appendChild(usersPanel);
-  usersToggle.addEventListener("click", () => usersPanel == null ? void 0 : usersPanel.classList.toggle("active"));
-  (_b2 = usersPanel.querySelector("#closeUsers")) == null ? void 0 : _b2.addEventListener("click", () => usersPanel == null ? void 0 : usersPanel.classList.remove("active"));
-  (_c2 = document.getElementById("setRoom")) == null ? void 0 : _c2.addEventListener("click", () => {
+  (_a2 = document.getElementById("setRoom")) == null ? void 0 : _a2.addEventListener("click", () => {
     const input = document.getElementById("customRoomName");
     const value = (input.value || "").trim();
     if (!value) return;
@@ -1912,19 +2068,24 @@ function renderMembers(members) {
     list.innerHTML = "";
     const selfId = JSON.parse(localStorage.getItem("userInfo") || "{}").id;
     members.filter((m) => m.id !== void 0 && m.id !== null && m.id !== selfId).forEach((member) => {
-      const { userInfo: userInfo2 = {} } = member.clientData || {};
+      const { userInfo: userInfo2 = {}, callType } = member.clientData || {};
       const item = document.createElement("div");
-      item.className = "chat-message";
+      item.className = "person-row";
       const name = userInfo2.nickname || "Unknown";
       const gender = userInfo2.gender || "-";
       const status = userInfo2.status || "";
       const age = userInfo2.age || "";
+      const initial = name.trim().charAt(0).toUpperCase() || "?";
+      const liveTag = callType === "live-host" ? '<span class="person-live-tag">🔴 LIVE</span>' : "";
       item.innerHTML = `
-        <div class="sender">${escapeHtml$2(name)}</div>
-        <div style="font-size: 0.85rem; opacity: 0.9;">${escapeHtml$2(gender)}${status ? " • " + escapeHtml$2(status) : ""}${age ? " • " + escapeHtml$2(String(age)) : ""}</div>
-        <div style="margin-top:6px; display:flex; gap:6px;">
-          <button class="dmBtn" data-id="${member.id}" style="flex:unset; padding:4px 8px;">Message</button>
-          <button class="inviteBtn" data-id="${member.id}" style="flex:unset; padding:4px 8px;">Invite</button>
+        <div class="person-avatar">${escapeHtml$2(initial)}<span class="presence-dot"></span></div>
+        <div class="person-info">
+          <div class="person-name">${escapeHtml$2(name)}${liveTag}</div>
+          <div class="person-meta">${escapeHtml$2(gender)}${status ? " • " + escapeHtml$2(status) : ""}${age ? " • " + escapeHtml$2(String(age)) : ""}</div>
+        </div>
+        <div class="person-actions">
+          <button class="dmBtn" data-id="${member.id}" title="Message">💬</button>
+          <button class="inviteBtn" data-id="${member.id}" title="Invite">➕</button>
         </div>
       `;
       list.appendChild(item);
@@ -2087,13 +2248,10 @@ function destroyUsersPanel() {
   } catch {
   }
   try {
-    usersToggle == null ? void 0 : usersToggle.remove();
+    if (usersPanel) usersPanel.innerHTML = "";
   } catch {
   }
-  try {
-    usersPanel == null ? void 0 : usersPanel.remove();
-  } catch {
-  }
+  initialized = false;
 }
 const users = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
@@ -2138,7 +2296,10 @@ function escapeHtml$1(text) {
   return div.innerHTML;
 }
 function updateToggleIcon(kind) {
-  if (toggleBtn) toggleBtn.textContent = `${ROUTE_ICONS[kind]} Audio Output`;
+  if (!toggleBtn) return;
+  const icon = toggleBtn.querySelector(".action-icon");
+  if (icon) icon.textContent = ROUTE_ICONS[kind];
+  else toggleBtn.textContent = `${ROUTE_ICONS[kind]} Audio Output`;
 }
 function closeMenu() {
   menuEl == null ? void 0 : menuEl.classList.add("hidden");
@@ -2222,18 +2383,34 @@ function initializeAudioOutput() {
 const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 let localStream = null;
+let activeCallType = "video";
 const muteVideo = document.querySelector("#muteVideo");
 const muteAudio = document.querySelector("#muteAudio");
 const userInfoModal = document.querySelector("#userInfoModal");
 const retryBtn = document.querySelector("#retryBtn");
 const connectionStatusBar = document.querySelector("#connectionStatus");
 const connectionStatusText = connectionStatusBar == null ? void 0 : connectionStatusBar.querySelector(".text");
+const profileChip = document.getElementById("profileChip");
+const onlineUsersPill = document.getElementById("onlineUsersPill");
+const callTypePopover = document.getElementById("callTypePopover");
+const liveBadge = document.getElementById("liveBadge");
+const liveViewerCount = document.getElementById("liveViewerCount");
 let callStartMs = null;
 let statsInterval = null;
 let statsVisible = true;
 const pipToggleBtn = document.getElementById("pipToggle");
 const videoInputSelect = document.getElementById("videoInputSelect");
 const audioInputSelect = document.getElementById("audioInputSelect");
+function setCallState(state) {
+  document.body.dataset.callState = state;
+}
+setCallState("lobby");
+subscribeMembers((members) => {
+  if (onlineUsersPill) onlineUsersPill.textContent = `👥 ${members.length}`;
+  if (liveViewerCount && (document.body.dataset.callState === "live-host" || document.body.dataset.callState === "live-viewer")) {
+    liveViewerCount.textContent = `👁 ${members.length}`;
+  }
+});
 const serverURL = window.location.hostname === "localhost" ? "http://localhost:3000/" : "https://web-push-3zaz.onrender.com/";
 const subscribeToPushNotification = document.querySelector("#push");
 if (navigator.mediaDevices) {
@@ -2381,6 +2558,7 @@ if (!userInfo) {
   if (!nickname || !gender)
     openModal();
 }
+updateProfileChip();
 navigator.mediaDevices.addEventListener("devicechange", () => {
   populateDeviceSelectors();
 });
@@ -2439,25 +2617,39 @@ function restoreSelectedDevices() {
   } catch {
   }
 }
+function setActionLabel(button, text) {
+  const label = button.querySelector(".action-label");
+  if (label) label.textContent = text;
+  else button.textContent = text;
+}
 (_a = document.querySelector("#controls")) == null ? void 0 : _a.addEventListener("click", async (event) => {
-  const target = event.target;
+  var _a2;
+  const target = event.target.closest("button[id]");
+  if (!target) return;
   const targetID = target.id;
   switch (targetID) {
     case "start":
-      target.disabled = true;
-      await main();
-      target.disabled = false;
+      callTypePopover == null ? void 0 : callTypePopover.classList.toggle("open");
       break;
     case "muteAudio":
-      target.textContent = "🔇 " + ((localStream == null ? void 0 : localStream.getAudioTracks()[0].enabled) ? "Unmute Audio" : "Mute Audio");
+      setActionLabel(target, (localStream == null ? void 0 : localStream.getAudioTracks()[0].enabled) ? "Unmute Audio" : "Mute Audio");
       (localStream == null ? void 0 : localStream.getAudioTracks()[0]) && (localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled);
       break;
     case "muteVideo":
-      target.textContent = "🎥 " + ((localStream == null ? void 0 : localStream.getVideoTracks()[0].enabled) ? "Unmute Video" : "Mute Video");
+      setActionLabel(target, (localStream == null ? void 0 : localStream.getVideoTracks()[0].enabled) ? "Unmute Video" : "Mute Video");
       (localStream == null ? void 0 : localStream.getVideoTracks()[0]) && (localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled);
       break;
     case "switchCamera":
-      await switchCamera();
+      if (activeCallType !== "audio") await switchCamera();
+      break;
+    case "chatToggle":
+      toggleDrawer("chat");
+      break;
+    case "peopleToggle":
+      toggleDrawer("people");
+      break;
+    case "moreToggle":
+      (_a2 = document.getElementById("moreSheet")) == null ? void 0 : _a2.classList.toggle("open");
       break;
     case "videoDevicesRefresh":
       populateDeviceSelectors();
@@ -2473,7 +2665,62 @@ function restoreSelectedDevices() {
       break;
   }
 });
-(_b = document.querySelector(".Channel")) == null ? void 0 : _b.addEventListener("click", (event) => {
+callTypePopover == null ? void 0 : callTypePopover.addEventListener("click", async (event) => {
+  const target = event.target;
+  const choice = target.closest("[data-call-type]");
+  if (!choice) return;
+  const callType = choice.dataset.callType;
+  const startBtn = document.getElementById("start");
+  callTypePopover.classList.remove("open");
+  if (startBtn) startBtn.disabled = true;
+  await main(callType);
+  if (startBtn) startBtn.disabled = false;
+});
+document.addEventListener("click", (event) => {
+  if (!callTypePopover || !callTypePopover.classList.contains("open")) return;
+  const target = event.target;
+  if (callTypePopover.contains(target) || target.closest("#start")) return;
+  callTypePopover.classList.remove("open");
+});
+profileChip == null ? void 0 : profileChip.addEventListener("click", openModal);
+const sideDrawer = document.getElementById("sideDrawer");
+function switchDrawerTab(tab) {
+  var _a2, _b2;
+  document.querySelectorAll(".drawer-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+  (_a2 = document.getElementById("drawerPaneChat")) == null ? void 0 : _a2.classList.toggle("active", tab === "chat");
+  (_b2 = document.getElementById("drawerPanePeople")) == null ? void 0 : _b2.classList.toggle("active", tab === "people");
+}
+function openDrawer(tab) {
+  var _a2;
+  sideDrawer == null ? void 0 : sideDrawer.classList.add("open");
+  switchDrawerTab(tab);
+  if (tab === "chat") (_a2 = document.getElementById("chatEditor")) == null ? void 0 : _a2.focus();
+}
+function closeDrawer() {
+  sideDrawer == null ? void 0 : sideDrawer.classList.remove("open");
+}
+function toggleDrawer(tab) {
+  var _a2;
+  const isOpenOnTab = (sideDrawer == null ? void 0 : sideDrawer.classList.contains("open")) && ((_a2 = document.querySelector(`.drawer-tab[data-tab="${tab}"]`)) == null ? void 0 : _a2.classList.contains("active"));
+  if (isOpenOnTab) closeDrawer();
+  else openDrawer(tab);
+}
+(_b = document.getElementById("closeDrawer")) == null ? void 0 : _b.addEventListener("click", closeDrawer);
+document.querySelectorAll(".drawer-tab").forEach((btn) => {
+  btn.addEventListener("click", () => switchDrawerTab(btn.dataset.tab));
+});
+onlineUsersPill == null ? void 0 : onlineUsersPill.addEventListener("click", () => openDrawer("people"));
+document.addEventListener("click", (event) => {
+  const moreSheet = document.getElementById("moreSheet");
+  const moreToggleBtn = document.getElementById("moreToggle");
+  if (!moreSheet || !moreSheet.classList.contains("open")) return;
+  const target = event.target;
+  if (moreSheet.contains(target) || (moreToggleBtn == null ? void 0 : moreToggleBtn.contains(target))) return;
+  moreSheet.classList.remove("open");
+});
+(_c = document.querySelector(".Channel")) == null ? void 0 : _c.addEventListener("click", (event) => {
   const target = event.target;
   if (target.tagName !== "VIDEO") return;
   const mainVideo = document.getElementById("localMainVideo");
@@ -2484,7 +2731,7 @@ function restoreSelectedDevices() {
   mainVideo.classList.add("active");
   mainVideo.style.transform = video.id === "localVideo" ? "scale(-1, 1)" : "";
 });
-(_c = document.querySelector("#localMainVideo")) == null ? void 0 : _c.addEventListener("dblclick", (event) => {
+(_d = document.querySelector("#localMainVideo")) == null ? void 0 : _d.addEventListener("dblclick", (event) => {
   const target = event.target;
   target.requestFullscreen();
 });
@@ -2496,10 +2743,10 @@ if (pipToggleBtn) {
     const mainVideo = document.getElementById("localMainVideo");
     if (mainVideo) {
       mainVideo.addEventListener("enterpictureinpicture", () => {
-        pipToggleBtn.textContent = "🗗 Exit PiP";
+        setActionLabel(pipToggleBtn, "Exit PiP");
       });
       mainVideo.addEventListener("leavepictureinpicture", () => {
-        pipToggleBtn.textContent = "🗔 Picture-in-Picture";
+        setActionLabel(pipToggleBtn, "Picture-in-Picture");
       });
     }
   }
@@ -2528,17 +2775,34 @@ async function handlePiPToggle() {
     showToast("Error", "Unable to toggle Picture-in-Picture");
   }
 }
-async function main() {
+function markAsLiveHostTile(id) {
+  const tile = document.querySelector(`.participant[data-id="${id}"]`);
+  if (tile && !tile.querySelector(".live-tile-badge")) {
+    const badge = document.createElement("span");
+    badge.className = "live-tile-badge";
+    badge.textContent = "🔴 LIVE";
+    tile.appendChild(badge);
+  }
+}
+async function main(callType = "video") {
+  activeCallType = callType;
+  const isViewer = callType === "live-viewer";
+  const isLive = callType === "live-host" || isViewer;
+  setCallState(callType === "live-host" ? "live-host" : isViewer ? "live-viewer" : "in-call");
+  liveBadge == null ? void 0 : liveBadge.classList.toggle("hidden", !isLive);
   const nickname = JSON.parse(window.localStorage.getItem("userInfo") || "{}").nickname || "No name";
   SendPushToAll("Video Conferencing with KiteCite", "Started by " + nickname);
   restoreSelectedDevices();
-  localStream = await getLocalStream();
-  if (localStream) {
-    createVideoElement(localStream, "localVideo", true, "You");
+  if (!isViewer) {
+    localStream = await getLocalStream(callType === "audio" ? "audio" : "video");
+    if (localStream) {
+      createVideoElement(localStream, "localVideo", true, "You");
+      if (callType === "live-host") markAsLiveHostTile("localVideo");
+    }
   }
   callStartMs = Date.now();
   startStatsPolling();
-  if (!isIos) {
+  if (!isIos && !isViewer) {
     await populateDeviceSelectors();
   }
   if (drone) {
@@ -2548,13 +2812,12 @@ async function main() {
     });
     return;
   }
-  if (localStream) {
-    setupRoom(localStream, (remoteStream, id, name) => {
-      if (!document.getElementById(id)) {
-        createVideoElement(remoteStream, id, false, name);
-      }
-    });
-  }
+  setupRoom(localStream, (remoteStream, id, name, remoteCallType) => {
+    if (!document.getElementById(id)) {
+      createVideoElement(remoteStream, id, false, name);
+      if (remoteCallType === "live-host") markAsLiveHostTile(id);
+    }
+  }, callType);
 }
 if (!isIos)
   populateDeviceSelectors();
@@ -2563,18 +2826,15 @@ if (!isMobile) {
   if (switchCameraEl) switchCameraEl.style.display = "none";
 }
 initializeTheme();
+const moreSheetControls = document.querySelector("#moreSheet .sub-control");
 const themeSelector = createThemeSelector();
-const controls = document.querySelector(".controls");
-if (controls) {
-  controls.insertAdjacentElement("afterend", themeSelector);
-}
-const pipBtn = document.getElementById("pipToggle") || document.getElementById("shareScreen") || document.getElementById("hangup");
-if (pipBtn) {
+moreSheetControls == null ? void 0 : moreSheetControls.appendChild(themeSelector);
+if (moreSheetControls) {
   const statsToggle = document.createElement("button");
   statsToggle.id = "statsToggle";
-  statsToggle.textContent = "📊 Stats";
+  statsToggle.textContent = "📊 Toggle Stats";
   statsToggle.title = "Show/Hide bitrate stats";
-  (_d = pipBtn.parentNode) == null ? void 0 : _d.insertBefore(statsToggle, pipBtn.nextSibling);
+  moreSheetControls.appendChild(statsToggle);
   statsToggle.addEventListener("click", () => {
     statsVisible = !statsVisible;
     const panel = document.getElementById("statsPanel");
@@ -2589,14 +2849,7 @@ if ("serviceWorker" in navigator) {
     if (event.data && event.data.type === "NOTIFICATION_CLICK") {
       console.log("Notification clicked:", event.data.data);
       if (event.data.data.type === "chat") {
-        const chatPanel2 = document.querySelector(".chat-panel");
-        if (chatPanel2) {
-          chatPanel2.classList.add("active");
-          const chatInput = document.getElementById("chatInput");
-          if (chatInput) {
-            chatInput.focus();
-          }
-        }
+        openDrawer("chat");
       }
       if (event.data.data.type === "call" && event.data.data.roomId) {
         showToast("Info", `Incoming call to room: ${event.data.data.roomId}`);
@@ -2648,38 +2901,52 @@ userInfoModal == null ? void 0 : userInfoModal.addEventListener("click", (event)
     closeModal();
   }
 });
+function updateProfileChip() {
+  if (!profileChip) return;
+  const raw = window.localStorage.getItem("userInfo");
+  const parsed = raw ? JSON.parse(raw) : null;
+  const nickname = (parsed == null ? void 0 : parsed.nickname) || "";
+  const initial = (nickname || "?").trim().charAt(0).toUpperCase() || "?";
+  profileChip.innerHTML = `<span class="chip-avatar">${initial}</span><span class="chip-name">${nickname || "Set up profile"}</span>`;
+  profileChip.title = nickname ? "Edit your profile" : "Enter your details to start a call";
+}
+function updateProfileAvatarPreview() {
+  var _a2, _b2;
+  const preview = document.getElementById("profileAvatarPreview");
+  if (!preview) return;
+  const nickname = ((_a2 = document.querySelector("#nickname")) == null ? void 0 : _a2.value) || "";
+  const gender = (_b2 = document.querySelector("#divGender")) == null ? void 0 : _b2.querySelector("input:checked");
+  const initial = nickname.trim().charAt(0).toUpperCase();
+  preview.textContent = initial || ((gender == null ? void 0 : gender.value) === "female" ? "👩" : "👨");
+}
+(_e = document.getElementById("nickname")) == null ? void 0 : _e.addEventListener("input", updateProfileAvatarPreview);
+(_f = document.getElementById("divGender")) == null ? void 0 : _f.addEventListener("change", updateProfileAvatarPreview);
 function openModal() {
   userInfoModal == null ? void 0 : userInfoModal.classList.add("show-modal");
   const userInfo2 = window.localStorage.getItem("userInfo");
-  const h4 = document.querySelector("h4");
   if (userInfo2) {
     const parsed = JSON.parse(userInfo2);
     document.querySelector("#nickname").value = parsed.nickname;
-    document.querySelector("#divGender").querySelector(`input[value=${parsed.gender}]`);
+    const genderInput = document.querySelector("#divGender").querySelector(`input[value="${parsed.gender}"]`);
+    if (genderInput) genderInput.checked = true;
     document.querySelector("#status").value = parsed.status;
     document.querySelector("#age").value = parsed.age;
-    h4.innerHTML = "Video Conferencing with KiteCite";
   } else {
     document.querySelector("#start").setAttribute("disabled", "true");
-    h4.innerHTML = "Dear Anonymous User, Please Enter Your Details";
   }
+  updateProfileAvatarPreview();
 }
 function closeModal() {
   const userInfo2 = window.localStorage.getItem("userInfo");
-  const h4 = document.querySelector("h4");
   userInfoModal == null ? void 0 : userInfoModal.classList.remove("show-modal");
+  updateProfileChip();
   if (userInfo2) {
     document.querySelector("#nickname").value = "";
-    document.querySelector("#divGender").querySelector("input[value='male']");
     document.querySelector("#status").value = "";
     document.querySelector("#age").value = "";
-    h4.innerHTML = "Video Conferencing with KiteCite";
     document.querySelector("#start").removeAttribute("disabled");
-    h4.removeEventListener("click", openModal);
   } else {
     document.querySelector("#start").setAttribute("disabled", "true");
-    h4.innerHTML = "Dear Anonymous User, Please Enter Your Details By Clicking Here";
-    h4.addEventListener("click", openModal);
   }
 }
 let statsPanel = null;
@@ -2687,16 +2954,7 @@ function ensureStatsPanel() {
   if (statsPanel) return statsPanel;
   statsPanel = document.createElement("div");
   statsPanel.id = "statsPanel";
-  statsPanel.style.position = "fixed";
-  statsPanel.style.bottom = "10px";
-  statsPanel.style.left = "10px";
-  statsPanel.style.zIndex = "1001";
-  statsPanel.style.background = "var(--bg-card)";
-  statsPanel.style.border = "1px solid var(--border-primary)";
-  statsPanel.style.borderRadius = "8px";
-  statsPanel.style.padding = "8px 10px";
-  statsPanel.style.fontSize = "12px";
-  statsPanel.style.maxWidth = "320px";
+  statsPanel.className = "stats-panel";
   statsPanel.innerHTML = `<div id="callDuration">Duration: 00:00</div><div id="overallStats"></div><div id="perPeerStats" style="margin-top:6px;"></div>`;
   document.body.appendChild(statsPanel);
   makeDraggable(statsPanel);
@@ -2792,8 +3050,8 @@ function stopStatsPolling() {
 function resetControlsUI() {
   var _a2;
   try {
-    if (muteVideo) muteVideo.textContent = "🎥 Mute Video";
-    if (muteAudio) muteAudio.textContent = "🔇 Mute Audio";
+    if (muteVideo) setActionLabel(muteVideo, "Mute Video");
+    if (muteAudio) setActionLabel(muteAudio, "Mute Audio");
     (_a2 = document.querySelector("#localMainVideo")) == null ? void 0 : _a2.classList.remove("active");
     const channel = document.querySelector(".Channel");
     if (channel) channel.innerHTML = "";
@@ -2805,6 +3063,9 @@ function resetControlsUI() {
       connectionStatusBar.classList.add("connected");
       if (connectionStatusText) connectionStatusText.textContent = "Connected";
     }
+    activeCallType = "video";
+    setCallState("lobby");
+    liveBadge == null ? void 0 : liveBadge.classList.add("hidden");
   } catch {
   }
 }
@@ -2823,6 +3084,10 @@ async function resetAfterHangup() {
     } catch {
     }
     localStream = null;
+    try {
+      resetLocalStreamState();
+    } catch {
+    }
     try {
       if (drone && drone.rooms) {
         const roomName = Object.keys(drone.rooms)[0];
@@ -2901,4 +3166,4 @@ function makeDraggable(el) {
   }, { passive: true });
   window.addEventListener("touchend", onUp);
 }
-//# sourceMappingURL=main-Cpg5f780.js.map
+//# sourceMappingURL=main-MUveI_g6.js.map
