@@ -25,6 +25,44 @@ export function getSelectedDevices(): SelectedDevices {
   return { videoDeviceId: selectedVideoDeviceId, audioDeviceId: selectedAudioDeviceId };
 }
 
+// ===== Audio output routing (speaker / earpiece / bluetooth / headphones) =====
+// Remote audio is played through a per-peer AudioContext (see handleIncomingStream), not
+// through the <video> element, so output-device switching has to target those AudioContexts
+// via the Output Devices API (AudioContext.setSinkId) rather than HTMLMediaElement.setSinkId.
+const AUDIO_OUTPUT_STORAGE_KEY = 'selectedAudioOutputId';
+const remoteAudioContexts = new Map<string, AudioContext>();
+
+export function isAudioOutputSwitchingSupported(): boolean {
+  return typeof AudioContext !== 'undefined' && typeof AudioContext.prototype.setSinkId === 'function';
+}
+
+export function getStoredAudioOutputId(): string {
+  try { return localStorage.getItem(AUDIO_OUTPUT_STORAGE_KEY) || ''; } catch { return ''; }
+}
+
+async function applySinkIdToContext(ctx: AudioContext, deviceId: string): Promise<void> {
+  if (typeof ctx.setSinkId !== 'function') return;
+  try {
+    await ctx.setSinkId(deviceId);
+  } catch (e) {
+    console.warn('Failed to set audio output for a peer:', e);
+  }
+}
+
+// Called by the UI layer (audioOutput.ts) whenever the user picks a route.
+export async function setAudioOutputDevice(deviceId: string): Promise<void> {
+  try { localStorage.setItem(AUDIO_OUTPUT_STORAGE_KEY, deviceId); } catch {}
+  await Promise.all(Array.from(remoteAudioContexts.values()).map(ctx => applySinkIdToContext(ctx, deviceId)));
+}
+
+// Called when a peer's video element is torn down so we don't leak AudioContexts.
+export function removeRemoteAudioContext(id: string): void {
+  const ctx = remoteAudioContexts.get(id);
+  if (!ctx) return;
+  try { ctx.close(); } catch {}
+  remoteAudioContexts.delete(id);
+}
+
 const quality = document.querySelector('#quality') as HTMLElement;
 const framerate = document.querySelector('#framerate') as HTMLElement;
 const screenShare = document.querySelector('#shareScreen') as HTMLButtonElement;
@@ -245,11 +283,11 @@ export function createVideoElement(stream: MediaStream, id: string, isLocal = fa
     video.setAttribute("isRemote", "true");
     channel.prepend(div);
     if (channel.childElementCount === 2) video.click();
-    handleIncomingStream(stream, video);
+    handleIncomingStream(stream, video, id);
   }
 }
 
-function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement): void {
+function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement, id: string): void {
   const threshold = 20;  // Voice activity detection threshold
   const audioContext = new AudioContext();
   const source = audioContext.createMediaStreamSource(stream);
@@ -266,6 +304,12 @@ function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement): voi
   // Connect the audio processing chain
   source.connect(analyserNode);
   source.connect(gainNode).connect(audioContext.destination);
+
+  // Track this peer's AudioContext so the audio-output selector can route it, and
+  // apply whichever output device the user previously chose.
+  remoteAudioContexts.set(id, audioContext);
+  const storedOutputId = getStoredAudioOutputId();
+  if (storedOutputId) applySinkIdToContext(audioContext, storedOutputId);
 
   video.srcObject = stream;
   video.volume = 0; // mute video element to avoid double audio

@@ -79,10 +79,24 @@ export interface CandidateQueue {
   [key: string]: RTCIceCandidateInit[];
 }
 
+export type AudioRouteKind = 'speaker' | 'earpiece' | 'bluetooth' | 'headphones' | 'default';
+
+export interface AudioOutputOption {
+  id: string;
+  label: string;
+  kind: AudioRouteKind;
+}
+
 // Global declarations for external libraries
 declare global {
   interface Window {
     ScaleDrone: any;
+  }
+
+  // Output Devices API (not yet in lib.dom.d.ts for AudioContext) - optional/feature-detected at call sites
+  interface AudioContext {
+    readonly sinkId?: string;
+    setSinkId?(sinkId: string): Promise<void>;
   }
 }
 

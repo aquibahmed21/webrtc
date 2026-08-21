@@ -7,6 +7,7 @@ import { urlBase64ToUint8Array } from './util.js';
 import { initializeTheme, createThemeSelector } from './theme.js';
 import { initializeChat } from './chat.js';
 import { initializeUsersPanel } from './users.js';
+import { initializeAudioOutput } from './audioOutput.js';
 import { UserInfo } from '../types/index.js';
 
 export const isIos = /iphone|ipod|ipad/i.test(navigator.userAgent);
@@ -25,7 +26,6 @@ let statsVisible = true;
 const pipToggleBtn = document.getElementById('pipToggle') as HTMLButtonElement;
 const videoInputSelect = document.getElementById('videoInputSelect') as HTMLSelectElement;
 const audioInputSelect = document.getElementById('audioInputSelect') as HTMLSelectElement;
-const audioOutputSelect = document.getElementById('audioOutputSelect') as HTMLSelectElement;
 // const videoDevicesRefresh = document.getElementById('videoDevicesRefresh') as HTMLButtonElement;
 // const audioDevicesRefresh = document.getElementById('audioDevicesRefresh') as HTMLButtonElement;
 
@@ -185,46 +185,9 @@ if (!userInfo) {
     openModal();
 }
 
-document.querySelector("#audioOutputSelect")?.addEventListener('change', async () => {
-  const selectedDeviceId = audioOutputSelect.value;
-  const remoteVideos = document.querySelectorAll('video[isRemote]');
-  try {
-    for (const remoteVideo of remoteVideos) {
-      const video = remoteVideo as HTMLVideoElement;
-      if (typeof video.setSinkId === 'function') {
-        await video.setSinkId(selectedDeviceId);
-      }
-    }
-    console.log(`Audio output set to device: ${selectedDeviceId}`);
-  } catch (err) {
-    console.error('Error setting audio output device:', err);
-  }
-});
-
 navigator.mediaDevices.addEventListener('devicechange', () => {
   populateDeviceSelectors();
 });
-
-async function setupAudioOutputSelection(): Promise<void> {
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const audioOutputs = devices.filter(device => device.kind === 'audiooutput' || device.label.includes("headset"));
-
-    if (audioOutputs.length > 0) {
-      audioOutputSelect.innerHTML = '';
-      audioOutputs.forEach(device => {
-        const option = document.createElement('option');
-        option.value = device.deviceId;
-        option.text = device.label || device.kind || `Speaker ${audioOutputSelect.length + 1}`;
-        audioOutputSelect.appendChild(option);
-      });
-    }
-
-    audioOutputSelect.parentElement!.style.display = audioOutputs.length <= 1 ? 'none' : '';
-  } catch (err) {
-    console.error('Error fetching audio output devices:', err);
-  }
-}
 
 async function populateDeviceSelectors(): Promise<void> {
   try {
@@ -261,9 +224,6 @@ async function populateDeviceSelectors(): Promise<void> {
         audioInputSelect.value = current;
       }
     }
-
-    await setupAudioOutputSelection();
-
   } catch (e) {
     console.error('Failed to populate device selectors', e);
   }
@@ -303,9 +263,6 @@ document.querySelector("#controls")?.addEventListener('click', async (event: Eve
       break;
     case 'switchCamera':
       await switchCamera();
-      break;
-    case 'audioOutputRefresh':
-      setupAudioOutputSelection();
       break;
     case 'videoDevicesRefresh':
       populateDeviceSelectors();
@@ -455,6 +412,9 @@ initializeChat();
 
 // Initialize users panel
 initializeUsersPanel();
+
+// Initialize audio output routing (speaker / earpiece / bluetooth / headphones)
+initializeAudioOutput();
 
 // Handle service worker messages (notification clicks)
 if ('serviceWorker' in navigator) {

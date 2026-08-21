@@ -173,6 +173,7 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
           delete peerConnections[senderId];
         }
         delete candidateQueues[senderId];
+        import('./media.js').then(({ removeRemoteAudioContext }) => removeRemoteAudioContext(senderId)).catch(() => {});
 
         if (document.querySelector(".Channel")!.childElementCount === 1)
           document.querySelector(".Channel")?.children[0]?.querySelector("video")!.click();
@@ -278,6 +279,7 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
         delete peerConnections[memberObj.id];
       }
       delete candidateQueues[memberObj.id];
+      import('./media.js').then(({ removeRemoteAudioContext }) => removeRemoteAudioContext(memberObj.id)).catch(() => {});
       notifyMemberSubscribers();
     });
   }
@@ -322,6 +324,7 @@ export function setupRoom(localStreamRef: MediaStream, onRemoteTrack: (stream: M
       } else if (pc.iceConnectionState === "closed") {
         const el = document.getElementById(id);
         if (el) el.remove();
+        import('./media.js').then(({ removeRemoteAudioContext }) => removeRemoteAudioContext(id)).catch(() => {});
         showToast('Info', 'User has left the room!');
       }
     };
@@ -474,6 +477,7 @@ export function destroyConnections(): void {
           delete peerConnections[peerId];
         }
       } catch {}
+      import('./media.js').then(({ removeRemoteAudioContext }) => removeRemoteAudioContext(peerId)).catch(() => {});
     });
     // Clear candidate queues and members
     Object.keys(candidateQueues).forEach(id => delete candidateQueues[id]);
