@@ -145,6 +145,51 @@ function createScaledrone(roomName, onOpen, onMessage, callType = "video") {
   let stopped = false;
   let open = false;
   let generation = 0;
+  const MAX_PUBLISHES_PER_SEC = 15;
+  let publishQueue = [];
+  let publishTokens = MAX_PUBLISHES_PER_SEC;
+  let publishFlushTimer = null;
+  function resetPublishLimiter() {
+    publishQueue = [];
+    publishTokens = MAX_PUBLISHES_PER_SEC;
+    if (publishFlushTimer) {
+      clearInterval(publishFlushTimer);
+      publishFlushTimer = null;
+    }
+  }
+  function attachPublishThrottle(droneInstance) {
+    const originalPublish = droneInstance.publish.bind(droneInstance);
+    droneInstance.publish = (args) => {
+      if (publishTokens > 0) {
+        publishTokens--;
+        try {
+          originalPublish(args);
+        } catch (e) {
+          console.warn("Scaledrone publish failed:", e);
+        }
+        return;
+      }
+      publishQueue.push(args);
+      if (!publishFlushTimer) {
+        publishFlushTimer = setInterval(() => {
+          publishTokens = MAX_PUBLISHES_PER_SEC;
+          while (publishTokens > 0 && publishQueue.length) {
+            const next = publishQueue.shift();
+            publishTokens--;
+            try {
+              originalPublish(next);
+            } catch (e) {
+              console.warn("Scaledrone publish failed:", e);
+            }
+          }
+          if (publishQueue.length === 0 && publishFlushTimer) {
+            clearInterval(publishFlushTimer);
+            publishFlushTimer = null;
+          }
+        }, 1e3);
+      }
+    };
+  }
   function connect() {
     if (stopped) return;
     const myGen = ++generation;
@@ -152,12 +197,14 @@ function createScaledrone(roomName, onOpen, onMessage, callType = "video") {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+    resetPublishLimiter();
     open = false;
     try {
       drone2 = new window.ScaleDrone(CHANNEL_ID, {
         data: { userInfo: userInfo2, callType }
       });
       room2 = drone2.subscribe(roomName);
+      attachPublishThrottle(drone2);
     } catch (e) {
       console.error("Failed to initialize Scaledrone:", e);
       scheduleReconnect();
@@ -215,10 +262,12 @@ function createScaledrone(roomName, onOpen, onMessage, callType = "video") {
   ref.isOpen = () => open;
   ref.disconnect = () => {
     stopped = true;
+    generation++;
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+    resetPublishLimiter();
     window.removeEventListener("online", handleOnlineOnce);
     try {
       if (drone2 && typeof drone2.close === "function") drone2.close();
@@ -228,9 +277,12 @@ function createScaledrone(roomName, onOpen, onMessage, callType = "video") {
   ref.reconnectNow = () => {
     if (stopped) return;
     reconnectAttempts = 0;
-    try {
-      if (drone2 && typeof drone2.close === "function") drone2.close();
-    } catch {
+    generation++;
+    if (drone2 && typeof drone2.close === "function") {
+      try {
+        drone2.close();
+      } catch {
+      }
     }
     connect();
   };
@@ -791,6 +843,7 @@ function setupRoom(localStreamRef, onRemoteTrack, callType = "video") {
   drone = signallingRef.drone;
   room = signallingRef.room;
   ensureNetworkListeners();
+  startWatchdog();
 }
 function ensureNetworkListeners() {
   if (networkListenersBound) return;
@@ -806,6 +859,55 @@ function ensureNetworkListeners() {
     showToast("Error", "Network disconnected. Trying to recover...");
     connectionStatus.set("disconnected");
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || !signallingRef) return;
+    if (!isCallHealthy()) {
+      connectionStatus.set("reconnecting");
+      signallingRef.reconnectNow();
+    }
+  });
+}
+const WATCHDOG_INTERVAL_MS = 4e3;
+const STALE_CONNECTION_THRESHOLD_MS = 9e3;
+const FORCED_RECONNECT_MIN_GAP_MS = 12e3;
+let watchdogTimer = null;
+let lastHealthyAt = Date.now();
+let lastForcedReconnectAt = 0;
+function isCallHealthy() {
+  if (!signallingRef) return true;
+  if (!navigator.onLine) return false;
+  const pcs = Object.values(peerConnections);
+  if (pcs.length === 0) return true;
+  return pcs.every(
+    (pc) => pc.connectionState === "connected" || pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed"
+  );
+}
+function startWatchdog() {
+  if (watchdogTimer) return;
+  lastHealthyAt = Date.now();
+  watchdogTimer = setInterval(() => {
+    if (!signallingRef) {
+      stopWatchdog();
+      return;
+    }
+    if (isCallHealthy()) {
+      lastHealthyAt = Date.now();
+      return;
+    }
+    const now = Date.now();
+    if (now - lastHealthyAt < STALE_CONNECTION_THRESHOLD_MS) return;
+    if (now - lastForcedReconnectAt < FORCED_RECONNECT_MIN_GAP_MS) return;
+    lastForcedReconnectAt = now;
+    console.warn("Connection watchdog: forcing reconnect after prolonged unhealthy state.");
+    connectionStatus.set("reconnecting");
+    signallingRef.reconnectNow();
+  }, WATCHDOG_INTERVAL_MS);
+}
+function stopWatchdog() {
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
+    watchdogTimer = null;
+  }
 }
 function handleOpen(error) {
   if (error) return console.error(error);
@@ -813,7 +915,7 @@ function handleOpen(error) {
   drone = signallingRef.drone;
   room = signallingRef.room;
   bindRoomEvents();
-  attemptReconnect();
+  requestReconnect();
   connectionStatus.set("connected");
   console.log("Connected to Scaledrone");
 }
@@ -865,7 +967,9 @@ function handleMessage(message) {
       break;
     case "answer":
       if (data.to === drone.clientId && peerConnections[senderId]) {
-        peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.answer)).then(async () => {
+        const pc = peerConnections[senderId];
+        if (pc.signalingState !== "have-local-offer") break;
+        pc.setRemoteDescription(new RTCSessionDescription(data.answer)).then(async () => {
           await drainCandidateQueue(senderId);
         }).catch((e) => console.error("Failed to handle answer from", senderId, e));
       }
@@ -1126,7 +1230,7 @@ async function attemptIceRestart(pc, id) {
       console.error("ICE restart failed repeatedly for", id, "- falling back to full reconnection.");
       showToast("Error", "ICE restart failed repeatedly. Attempting full reconnection.");
       restartAttempts[id] = 0;
-      attemptReconnect();
+      requestReconnect();
       return;
     }
     const delay = Math.min(1500 * attempts, ICE_RESTART_MAX_BACKOFF_MS);
@@ -1138,7 +1242,16 @@ async function attemptIceRestart(pc, id) {
     }, delay);
   }
 }
-function attemptReconnect() {
+const RECONNECT_DEBOUNCE_MS = 500;
+let reconnectDebounceTimer = null;
+function requestReconnect() {
+  if (reconnectDebounceTimer) clearTimeout(reconnectDebounceTimer);
+  reconnectDebounceTimer = setTimeout(() => {
+    reconnectDebounceTimer = null;
+    void attemptReconnect();
+  }, RECONNECT_DEBOUNCE_MS);
+}
+async function attemptReconnect() {
   if (reconnectInFlight) return;
   reconnectInFlight = true;
   try {
@@ -1153,11 +1266,8 @@ function attemptReconnect() {
       }
     });
     Object.keys(candidateQueues).forEach((id) => delete candidateQueues[id]);
-    membersList.forEach((member) => {
-      if (drone && member.id !== drone.clientId) {
-        createPeerConnection(member.id, true).catch((e) => console.error("Failed to reconnect to peer", member.id, e));
-      }
-    });
+    const tasks = membersList.filter((member) => drone && member.id !== drone.clientId).map((member) => createPeerConnection(member.id, true).catch((e) => console.error("Failed to reconnect to peer", member.id, e)));
+    await Promise.all(tasks);
   } catch (e) {
     console.error("Reconnect attempt failed:", e);
   } finally {
@@ -1234,11 +1344,16 @@ function manualReconnect() {
   if (signallingRef) {
     signallingRef.reconnectNow();
   } else {
-    attemptReconnect();
+    requestReconnect();
   }
 }
 function destroyConnections() {
   try {
+    stopWatchdog();
+    if (reconnectDebounceTimer) {
+      clearTimeout(reconnectDebounceTimer);
+      reconnectDebounceTimer = null;
+    }
     Object.keys(peerConnections).forEach((peerId) => {
       try {
         clearIceRestartState(peerId);
@@ -3188,4 +3303,4 @@ function makeDraggable(el) {
   }, { passive: true });
   window.addEventListener("touchend", onUp);
 }
-//# sourceMappingURL=main-B81iBqS7.js.map
+//# sourceMappingURL=main-TIgstkvi.js.map
