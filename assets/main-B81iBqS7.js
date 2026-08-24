@@ -144,8 +144,14 @@ function createScaledrone(roomName, onOpen, onMessage, callType = "video") {
   let reconnectTimer = null;
   let stopped = false;
   let open = false;
+  let generation = 0;
   function connect() {
     if (stopped) return;
+    const myGen = ++generation;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
     open = false;
     try {
       drone2 = new window.ScaleDrone(CHANNEL_ID, {
@@ -160,22 +166,25 @@ function createScaledrone(roomName, onOpen, onMessage, callType = "video") {
     ref.drone = drone2;
     ref.room = room2;
     drone2.on("open", (err) => {
-      if (stopped) return;
+      if (stopped || myGen !== generation) return;
       reconnectAttempts = 0;
       open = !err;
       onOpen && onOpen(err);
     });
     room2.on("message", (msg) => {
-      if (!stopped) onMessage && onMessage(msg);
+      if (!stopped && myGen === generation) onMessage && onMessage(msg);
     });
     drone2.on("error", (err) => {
+      if (myGen !== generation) return;
       console.error("Scaledrone error:", err);
     });
     drone2.on("close", () => {
+      if (myGen !== generation) return;
       open = false;
       scheduleReconnect();
     });
     room2.on("error", (err) => {
+      if (myGen !== generation) return;
       console.error("Room error:", err);
     });
   }
@@ -218,12 +227,12 @@ function createScaledrone(roomName, onOpen, onMessage, callType = "video") {
   };
   ref.reconnectNow = () => {
     if (stopped) return;
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    }
     reconnectAttempts = 0;
-    if (!open) connect();
+    try {
+      if (drone2 && typeof drone2.close === "function") drone2.close();
+    } catch {
+    }
+    connect();
   };
   return ref;
 }
@@ -790,11 +799,7 @@ function ensureNetworkListeners() {
     if (!signallingRef) return;
     showToast("Info", "Network connected. Attempting to reconnect...");
     connectionStatus.set("reconnecting");
-    if (signallingRef.isOpen()) {
-      attemptReconnect();
-    } else {
-      signallingRef.reconnectNow();
-    }
+    signallingRef.reconnectNow();
   });
   window.addEventListener("offline", () => {
     if (!signallingRef) return;
@@ -1226,7 +1231,7 @@ function manualReconnect() {
     showToast("Warning", "Start the call first to reconnect.");
     return;
   }
-  if (signallingRef && !signallingRef.isOpen()) {
+  if (signallingRef) {
     signallingRef.reconnectNow();
   } else {
     attemptReconnect();
@@ -1333,14 +1338,13 @@ async function applySinkIdToElement(element, deviceId) {
     console.warn("Failed to set audio output for a peer:", e);
   }
 }
-function createRemoteAudioElement(context, destinationNode, id) {
+function createRemoteAudioElement(destinationNode) {
   const element = new Audio();
   element.autoplay = true;
   element.setAttribute("playsinline", "true");
   element.srcObject = destinationNode.stream;
   element.play().catch(() => {
   });
-  remotePeerAudio.set(id, { context, element });
   const storedOutputId = getStoredAudioOutputId();
   if (storedOutputId) applySinkIdToElement(element, storedOutputId);
   return element;
@@ -1353,8 +1357,17 @@ async function setAudioOutputDevice(deviceId) {
   await Promise.all(Array.from(remotePeerAudio.values()).map(({ element }) => applySinkIdToElement(element, deviceId)));
 }
 function removeRemoteAudioContext(id) {
+  var _a2;
   const entry = remotePeerAudio.get(id);
   if (!entry) return;
+  try {
+    clearInterval(entry.monitorInterval);
+  } catch {
+  }
+  try {
+    (_a2 = entry.indicator) == null ? void 0 : _a2.remove();
+  } catch {
+  }
   try {
     entry.element.pause();
     entry.element.srcObject = null;
@@ -1585,6 +1598,15 @@ function createVideoElement(stream, id, isLocal = false, name = "") {
     handleIncomingStream(stream, video, id);
   }
 }
+function updateRemoteVideoStream(id, stream) {
+  const video = document.getElementById(id);
+  if (!video) return false;
+  removeRemoteAudioContext(id);
+  const participant = video.closest(".participant");
+  if (participant) participant.setAttribute("data-has-video", stream.getVideoTracks().length > 0 ? "true" : "false");
+  handleIncomingStream(stream, video, id);
+  return true;
+}
 function handleIncomingStream(stream, video, id) {
   const threshold = 20;
   const audioContext = new AudioContext();
@@ -1598,7 +1620,7 @@ function handleIncomingStream(stream, video, id) {
   const destinationNode = audioContext.createMediaStreamDestination();
   source.connect(analyserNode);
   source.connect(gainNode).connect(destinationNode);
-  createRemoteAudioElement(audioContext, destinationNode, id);
+  const audioElement = createRemoteAudioElement(destinationNode);
   video.srcObject = stream;
   video.volume = 0;
   let isSpeaking = false;
@@ -1627,10 +1649,7 @@ function handleIncomingStream(stream, video, id) {
       notifySpeakingStatus(video.id, false);
     }
   }, 100);
-  video.addEventListener("removed", () => {
-    clearInterval(monitorInterval);
-    audioContext.close();
-  });
+  remotePeerAudio.set(id, { context: audioContext, element: audioElement, monitorInterval, indicator: audioLevelIndicator });
 }
 function highlightSpeaker(isSpeaking, video) {
   const participant = video.closest(".participant");
@@ -1920,7 +1939,8 @@ const media = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   setAudioOutputDevice,
   setSelectedDevices,
   switchCamera,
-  switchToSelectedDevices
+  switchToSelectedDevices,
+  updateRemoteVideoStream
 }, Symbol.toStringTag, { value: "Module" }));
 function urlBase64ToUint8Array(base64String) {
   try {
@@ -2816,6 +2836,8 @@ async function main(callType = "video") {
     if (!document.getElementById(id)) {
       createVideoElement(remoteStream, id, false, name);
       if (remoteCallType === "live-host") markAsLiveHostTile(id);
+    } else {
+      updateRemoteVideoStream(id, remoteStream);
     }
   }, callType);
 }
@@ -3166,4 +3188,4 @@ function makeDraggable(el) {
   }, { passive: true });
   window.addEventListener("touchend", onUp);
 }
-//# sourceMappingURL=main-MUveI_g6.js.map
+//# sourceMappingURL=main-B81iBqS7.js.map
