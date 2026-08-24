@@ -83,6 +83,7 @@ export function setupRoom(localStreamRef: MediaStream | null, onRemoteTrack: (st
   room = signallingRef.room;
 
   ensureNetworkListeners();
+  startWatchdog();
 }
 
 // Bound once for the page's lifetime (see comment above `networkListenersBound`).
@@ -108,6 +109,66 @@ function ensureNetworkListeners(): void {
     showToast('Error', 'Network disconnected. Trying to recover...');
     connectionStatus.set('disconnected');
   });
+
+  // Switching between WiFi and cellular is frequently a "silent" handover from the page's
+  // point of view - many browsers/OSes never fire 'offline'/'online' for it at all (there's
+  // rarely a true zero-connectivity gap), and the old WebSocket can go quiet without ever
+  // firing 'close'. If the tab was backgrounded for that switch (very common - the user was
+  // in OS settings toggling WiFi), re-check health as soon as it's foregrounded again rather
+  // than waiting for the watchdog's next tick.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !signallingRef) return;
+    if (!isCallHealthy()) {
+      connectionStatus.set('reconnecting');
+      signallingRef.reconnectNow();
+    }
+  });
+}
+
+// Last-resort net for exactly the scenario above: a network interface switch that never
+// produces any event this module otherwise reacts to (no offline/online pair, no WebSocket
+// close, ICE quietly wedged). Polls actual peer-connection health and forces a full
+// reconnect if it's been stuck for a while, instead of waiting indefinitely for a signal
+// that may never come.
+const WATCHDOG_INTERVAL_MS = 4000;
+const STALE_CONNECTION_THRESHOLD_MS = 9000; // how long we tolerate a non-connected state
+const FORCED_RECONNECT_MIN_GAP_MS = 12000; // don't escalate more than once per this window
+let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+let lastHealthyAt = Date.now();
+let lastForcedReconnectAt = 0;
+
+function isCallHealthy(): boolean {
+  if (!signallingRef) return true; // no active call to watch
+  if (!navigator.onLine) return false;
+  const pcs = Object.values(peerConnections);
+  if (pcs.length === 0) return true; // alone in the room - signalling itself is enough
+  return pcs.every(pc =>
+    pc.connectionState === 'connected' ||
+    pc.iceConnectionState === 'connected' ||
+    pc.iceConnectionState === 'completed'
+  );
+}
+
+function startWatchdog(): void {
+  if (watchdogTimer) return;
+  lastHealthyAt = Date.now();
+  watchdogTimer = setInterval(() => {
+    if (!signallingRef) { stopWatchdog(); return; }
+    if (isCallHealthy()) { lastHealthyAt = Date.now(); return; }
+
+    const now = Date.now();
+    if (now - lastHealthyAt < STALE_CONNECTION_THRESHOLD_MS) return;
+    if (now - lastForcedReconnectAt < FORCED_RECONNECT_MIN_GAP_MS) return;
+
+    lastForcedReconnectAt = now;
+    console.warn('Connection watchdog: forcing reconnect after prolonged unhealthy state.');
+    connectionStatus.set('reconnecting');
+    signallingRef.reconnectNow();
+  }, WATCHDOG_INTERVAL_MS);
+}
+
+function stopWatchdog(): void {
+  if (watchdogTimer) { clearInterval(watchdogTimer); watchdogTimer = null; }
 }
 
 function handleOpen(error?: any): void {
@@ -122,7 +183,7 @@ function handleOpen(error?: any): void {
   bindRoomEvents();
 
   // ensure peer reconnection with all participants on reconnect
-  attemptReconnect();
+  requestReconnect();
 
   connectionStatus.set('connected');
   console.log('Connected to Scaledrone');
@@ -182,7 +243,13 @@ function handleMessage(message: any): void {
     case 'answer':
       // console.log('Received an answer from', senderId);
       if (data.to === drone.clientId && peerConnections[senderId]) {
-        peerConnections[senderId].setRemoteDescription(new RTCSessionDescription(data.answer)).then(async () => {
+        const pc = peerConnections[senderId];
+        // Only valid in 'have-local-offer' - a connection already back in 'stable' (its own
+        // offer already answered, or superseded by a newer one) means this answer is stale,
+        // most likely a duplicate/late message from an offer we've since moved past. Applying
+        // it anyway just throws (Called in wrong state: stable); skip it instead of logging noise.
+        if (pc.signalingState !== 'have-local-offer') break;
+        pc.setRemoteDescription(new RTCSessionDescription(data.answer)).then(async () => {
           await drainCandidateQueue(senderId);
         }).catch((e: any) => console.error('Failed to handle answer from', senderId, e));
       }
@@ -502,7 +569,7 @@ async function attemptIceRestart(pc: RTCPeerConnection, id: string): Promise<voi
       console.error('ICE restart failed repeatedly for', id, '- falling back to full reconnection.');
       showToast('Error', 'ICE restart failed repeatedly. Attempting full reconnection.');
       restartAttempts[id] = 0;
-      attemptReconnect();
+      requestReconnect();
       return;
     }
 
@@ -516,7 +583,28 @@ async function attemptIceRestart(pc: RTCPeerConnection, id: string): Promise<voi
   }
 }
 
-function attemptReconnect(): void {
+// Coalesces rapid repeated reconnect triggers (handleOpen firing more than once during a
+// flapping interface handover, the ICE-restart fallback, a manual retry, ...) into a single
+// rebuild instead of stacking N of them. Without this, each trigger tears down and recreates
+// every peer connection - and with several triggers landing within milliseconds of each
+// other, that's several full sets of fresh offers/ICE candidates fired at once, easily
+// blowing past Scaledrone's publish rate limit and losing negotiation messages outright.
+const RECONNECT_DEBOUNCE_MS = 500;
+let reconnectDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function requestReconnect(): void {
+  if (reconnectDebounceTimer) clearTimeout(reconnectDebounceTimer);
+  reconnectDebounceTimer = setTimeout(() => {
+    reconnectDebounceTimer = null;
+    void attemptReconnect();
+  }, RECONNECT_DEBOUNCE_MS);
+}
+
+async function attemptReconnect(): Promise<void> {
+  // Guards for the *entire* async rebuild, not just its synchronous portion - createPeerConnection
+  // below is async and was previously fired-and-forgotten, which let this flag flip back to
+  // false (in a synchronous `finally`) well before the offers it kicked off had actually been
+  // created/sent, leaving a second overlapping call free to race it and double every message.
   if (reconnectInFlight) return;
   reconnectInFlight = true;
   try {
@@ -532,12 +620,12 @@ function attemptReconnect(): void {
     });
     // Clear queued candidates
     Object.keys(candidateQueues).forEach(id => delete candidateQueues[id]);
-    // For all known members, initiate fresh connections
-    membersList.forEach(member => {
-      if (drone && member.id !== drone.clientId) {
-        createPeerConnection(member.id, true).catch(e => console.error('Failed to reconnect to peer', member.id, e));
-      }
-    });
+    // For all known members, initiate fresh connections - and wait for them to actually be
+    // sent before releasing the guard above.
+    const tasks = membersList
+      .filter(member => drone && member.id !== drone.clientId)
+      .map(member => createPeerConnection(member.id, true).catch(e => console.error('Failed to reconnect to peer', member.id, e)));
+    await Promise.all(tasks);
   } catch (e) {
     console.error('Reconnect attempt failed:', e);
   } finally {
@@ -610,12 +698,14 @@ export function manualReconnect(): void {
     // handleOpen() rebinds room events and resyncs peers once it (re)opens.
     signallingRef.reconnectNow();
   } else {
-    attemptReconnect();
+    requestReconnect();
   }
 }
 
 export function destroyConnections(): void {
   try {
+    stopWatchdog();
+    if (reconnectDebounceTimer) { clearTimeout(reconnectDebounceTimer); reconnectDebounceTimer = null; }
     // Close all peer connections
     Object.keys(peerConnections).forEach(peerId => {
       try {

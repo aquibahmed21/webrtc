@@ -25,10 +25,55 @@ export function createScaledrone(roomName: string, onOpen: (error?: any) => void
   // they've been superseded and no-op instead of racing the current connection attempt.
   let generation = 0;
 
+  // Scaledrone enforces a 20 messages/sec publish cap and silently rejects (with an
+  // 'error' event, not a thrown exception) anything over it. A burst that size is easy to
+  // hit during a reconnect - rebuilding a mesh of peer connections means every one of them
+  // gathers and publishes its own batch of ICE candidates at roughly the same moment. When
+  // publishes get dropped this way, offers/answers/candidates silently vanish and
+  // negotiation never completes - so every publish is routed through a small limiter that
+  // queues the overflow instead of firing it straight into the cap.
+  const MAX_PUBLISHES_PER_SEC = 15; // headroom under Scaledrone's 20/sec cap
+  let publishQueue: any[] = [];
+  let publishTokens = MAX_PUBLISHES_PER_SEC;
+  let publishFlushTimer: ReturnType<typeof setInterval> | null = null;
+
+  function resetPublishLimiter(): void {
+    publishQueue = [];
+    publishTokens = MAX_PUBLISHES_PER_SEC;
+    if (publishFlushTimer) { clearInterval(publishFlushTimer); publishFlushTimer = null; }
+  }
+
+  function attachPublishThrottle(droneInstance: any): void {
+    const originalPublish = droneInstance.publish.bind(droneInstance);
+    droneInstance.publish = (args: any) => {
+      if (publishTokens > 0) {
+        publishTokens--;
+        try { originalPublish(args); } catch (e) { console.warn('Scaledrone publish failed:', e); }
+        return;
+      }
+      publishQueue.push(args);
+      if (!publishFlushTimer) {
+        publishFlushTimer = setInterval(() => {
+          publishTokens = MAX_PUBLISHES_PER_SEC;
+          while (publishTokens > 0 && publishQueue.length) {
+            const next = publishQueue.shift();
+            publishTokens--;
+            try { originalPublish(next); } catch (e) { console.warn('Scaledrone publish failed:', e); }
+          }
+          if (publishQueue.length === 0 && publishFlushTimer) {
+            clearInterval(publishFlushTimer);
+            publishFlushTimer = null;
+          }
+        }, 1000);
+      }
+    };
+  }
+
   function connect(): void {
     if (stopped) return;
     const myGen = ++generation;
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    resetPublishLimiter(); // any queued messages belonged to the connection we're replacing
     open = false;
     try {
       // callType rides along in clientData so every peer's Member entry (room.ts)
@@ -37,6 +82,7 @@ export function createScaledrone(roomName: string, onOpen: (error?: any) => void
         data: { userInfo, callType },
       });
       room = drone.subscribe(roomName);
+      attachPublishThrottle(drone);
     } catch (e) {
       console.error('Failed to initialize Scaledrone:', e);
       scheduleReconnect();
@@ -111,7 +157,9 @@ export function createScaledrone(roomName: string, onOpen: (error?: any) => void
   // reviving the connection - and re-joining the room - in the background.
   ref.disconnect = () => {
     stopped = true;
+    generation++; // invalidate this drone's handlers before tearing it down
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    resetPublishLimiter();
     window.removeEventListener('online', handleOnlineOnce);
     try { if (drone && typeof drone.close === 'function') drone.close(); } catch {}
   };
@@ -126,7 +174,10 @@ export function createScaledrone(roomName: string, onOpen: (error?: any) => void
   ref.reconnectNow = () => {
     if (stopped) return;
     reconnectAttempts = 0;
-    try { if (drone && typeof drone.close === 'function') drone.close(); } catch {}
+    generation++; // invalidate the outgoing drone's handlers before tearing it down, so a
+                   // 'close'/'error' it fires (sync or async) can't schedule a competing
+                   // reconnect behind connect()'s back
+    if (drone && typeof drone.close === 'function') { try { drone.close(); } catch {} }
     connect();
   };
 
