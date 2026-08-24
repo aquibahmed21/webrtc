@@ -1,6 +1,6 @@
 // app.ts
 import { serviceWorkerMain } from './main.js';
-import { getLocalStream, createVideoElement, switchCamera, switchToSelectedDevices, setSelectedDevices, getSelectedDevices, resetLocalStreamState } from './media.js';
+import { getLocalStream, createVideoElement, updateRemoteVideoStream, switchCamera, switchToSelectedDevices, setSelectedDevices, getSelectedDevices, resetLocalStreamState } from './media.js';
 import { setupRoom, pcInfo, drone, manualReconnect, connectionStatus, getPeerConnections, getPeerName, subscribeMembers } from './room.js';
 import { showToast } from './toast.js';
 import { urlBase64ToUint8Array } from './util.js';
@@ -495,6 +495,12 @@ async function main(callType: CallType = 'video'): Promise<void> {
     if (!document.getElementById(id)) {
       createVideoElement(remoteStream, id, false, name);
       if (remoteCallType === 'live-host') markAsLiveHostTile(id);
+    } else {
+      // A tile for this peer already exists - this is a fresh MediaStream from a
+      // reconnect (room.ts built a new RTCPeerConnection), not the peer's first join.
+      // Repoint the existing tile at it instead of silently dropping it, or that side
+      // never sees the peer's video/audio again after reconnecting.
+      updateRemoteVideoStream(id, remoteStream);
     }
   }, callType);
 }

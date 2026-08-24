@@ -19,9 +19,16 @@ export function createScaledrone(roomName: string, onOpen: (error?: any) => void
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false; // true once the caller explicitly tore this connection down
   let open = false;
+  // Bumped on every connect() so a previous generation's drone/room event handlers
+  // (which may fire late, or never fire a clean 'close' at all - real network drops
+  // routinely leave a WebSocket silently dead with no close frame for minutes) can tell
+  // they've been superseded and no-op instead of racing the current connection attempt.
+  let generation = 0;
 
   function connect(): void {
     if (stopped) return;
+    const myGen = ++generation;
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     open = false;
     try {
       // callType rides along in clientData so every peer's Member entry (room.ts)
@@ -41,26 +48,29 @@ export function createScaledrone(roomName: string, onOpen: (error?: any) => void
     ref.room = room;
 
     drone.on('open', (err: any) => {
-      if (stopped) return;
+      if (stopped || myGen !== generation) return;
       reconnectAttempts = 0;
       open = !err;
       onOpen && onOpen(err);
     });
 
-    room.on('message', (msg: any) => { if (!stopped) onMessage && onMessage(msg); });
+    room.on('message', (msg: any) => { if (!stopped && myGen === generation) onMessage && onMessage(msg); });
 
     drone.on('error', (err: any) => {
+      if (myGen !== generation) return;
       console.error('Scaledrone error:', err);
     });
 
     // Handle close/disconnect and try to reconnect
     drone.on('close', () => {
+      if (myGen !== generation) return; // superseded by a newer connection attempt
       open = false;
       scheduleReconnect();
     });
 
     // Defensive: room level events
     room.on('error', (err: any) => {
+      if (myGen !== generation) return;
       console.error('Room error:', err);
     });
   }
@@ -106,14 +116,18 @@ export function createScaledrone(roomName: string, onOpen: (error?: any) => void
     try { if (drone && typeof drone.close === 'function') drone.close(); } catch {}
   };
 
-  // Force an immediate reconnect attempt, bypassing any pending backoff delay -
-  // used by the UI's manual "Retry" action so the user isn't stuck waiting out
-  // the exponential backoff.
+  // Force an immediate reconnect attempt, bypassing any pending backoff delay - used by
+  // the UI's manual "Retry" action and by room.ts whenever the browser reports the network
+  // coming back. Deliberately unconditional (does NOT gate on `open`): after a real network
+  // drop the old socket routinely never fires a clean 'close' event, so `open` can be stuck
+  // stale as `true` from before the outage - gating on it here would silently no-op exactly
+  // when a forced reconnect is needed most. The generation counter (see connect()) makes
+  // this safe even if the old drone does eventually fire a late 'close'/'error'.
   ref.reconnectNow = () => {
     if (stopped) return;
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     reconnectAttempts = 0;
-    if (!open) connect();
+    try { if (drone && typeof drone.close === 'function') drone.close(); } catch {}
+    connect();
   };
 
   return ref;

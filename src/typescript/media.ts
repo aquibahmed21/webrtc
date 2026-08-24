@@ -52,6 +52,8 @@ const AUDIO_OUTPUT_STORAGE_KEY = 'selectedAudioOutputId';
 interface RemotePeerAudio {
   context: AudioContext;
   element: HTMLAudioElement;
+  monitorInterval: ReturnType<typeof setInterval>;
+  indicator: HTMLElement | null;
 }
 const remotePeerAudio = new Map<string, RemotePeerAudio>();
 
@@ -74,14 +76,13 @@ async function applySinkIdToElement(element: HTMLAudioElement, deviceId: string)
 
 // Creates the hidden <audio> element a peer's (gain-boosted) audio is actually played through,
 // and applies whichever output device the user previously chose.
-function createRemoteAudioElement(context: AudioContext, destinationNode: MediaStreamAudioDestinationNode, id: string): HTMLAudioElement {
+function createRemoteAudioElement(destinationNode: MediaStreamAudioDestinationNode): HTMLAudioElement {
   const element = new Audio();
   element.autoplay = true;
   element.setAttribute('playsinline', 'true');
   element.srcObject = destinationNode.stream;
   element.play().catch(() => {}); // autoplay can be blocked until a user gesture; call start already required one
 
-  remotePeerAudio.set(id, { context, element });
   const storedOutputId = getStoredAudioOutputId();
   if (storedOutputId) applySinkIdToElement(element, storedOutputId);
 
@@ -94,10 +95,14 @@ export async function setAudioOutputDevice(deviceId: string): Promise<void> {
   await Promise.all(Array.from(remotePeerAudio.values()).map(({ element }) => applySinkIdToElement(element, deviceId)));
 }
 
-// Called when a peer's video element is torn down so we don't leak AudioContexts/<audio> elements.
+// Called when a peer's video element is torn down (or its stream is being replaced after a
+// reconnect - see updateRemoteVideoStream) so we don't leak AudioContexts/<audio> elements/
+// level-monitoring intervals/indicator nodes.
 export function removeRemoteAudioContext(id: string): void {
   const entry = remotePeerAudio.get(id);
   if (!entry) return;
+  try { clearInterval(entry.monitorInterval); } catch {}
+  try { entry.indicator?.remove(); } catch {}
   try { entry.element.pause(); entry.element.srcObject = null; entry.element.remove(); } catch {}
   try { entry.context.close(); } catch {}
   remotePeerAudio.delete(id);
@@ -354,6 +359,21 @@ export function createVideoElement(stream: MediaStream, id: string, isLocal = fa
   }
 }
 
+// Repoints an existing peer tile at a new MediaStream and rebuilds its audio pipeline.
+// Needed after a real reconnect: room.ts creates a brand-new RTCPeerConnection for the
+// peer, which fires `ontrack` again with a new MediaStream object - the old tile (and the
+// AudioContext wired to the old, now-dead stream) has to be refreshed to match, or that
+// side simply never sees/hears the peer again after reconnecting (looks like a one-way call).
+export function updateRemoteVideoStream(id: string, stream: MediaStream): boolean {
+  const video = document.getElementById(id) as HTMLVideoElement | null;
+  if (!video) return false;
+  removeRemoteAudioContext(id); // tear down the old audio graph before rebuilding it
+  const participant = video.closest('.participant') as HTMLElement | null;
+  if (participant) participant.setAttribute('data-has-video', stream.getVideoTracks().length > 0 ? 'true' : 'false');
+  handleIncomingStream(stream, video, id); // sets srcObject + rebuilds audio graph/level indicator
+  return true;
+}
+
 function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement, id: string): void {
   const threshold = 20;  // Voice activity detection threshold
   const audioContext = new AudioContext();
@@ -375,7 +395,7 @@ function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement, id: 
   const destinationNode = audioContext.createMediaStreamDestination();
   source.connect(analyserNode);
   source.connect(gainNode).connect(destinationNode);
-  createRemoteAudioElement(audioContext, destinationNode, id);
+  const audioElement = createRemoteAudioElement(destinationNode);
 
   video.srcObject = stream;
   video.volume = 0; // mute video element to avoid double audio
@@ -420,11 +440,9 @@ function handleIncomingStream(stream: MediaStream, video: HTMLVideoElement, id: 
     }
   }, 100);
 
-  // Clean up when video is removed
-  video.addEventListener('removed', () => {
-    clearInterval(monitorInterval);
-    audioContext.close();
-  });
+  // Tracked so removeRemoteAudioContext(id) can tear all of this down - both on final
+  // cleanup (peer left) and when rebuilding for a new stream after a reconnect.
+  remotePeerAudio.set(id, { context: audioContext, element: audioElement, monitorInterval, indicator: audioLevelIndicator });
 }
 
 function highlightSpeaker(isSpeaking: boolean, video: HTMLVideoElement): void {

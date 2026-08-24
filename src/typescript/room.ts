@@ -94,15 +94,13 @@ function ensureNetworkListeners(): void {
     if (!signallingRef) return; // no active call to reconnect
     showToast('Info', 'Network connected. Attempting to reconnect...');
     connectionStatus.set('reconnecting');
-    if (signallingRef.isOpen()) {
-      // Signalling channel survived - this was likely just a local network blip
-      // (wifi handoff, brief loss), so nudge the peer connections directly.
-      attemptReconnect();
-    } else {
-      // Signalling itself is down - make sure it isn't stuck waiting out a backoff
-      // delay. Once it reopens, handleOpen() below drives the full peer resync.
-      signallingRef.reconnectNow();
-    }
+    // Always force the signalling channel to reconnect, rather than trusting
+    // signallingRef.isOpen() to decide whether it needs to. After a real network drop
+    // the old socket routinely never reports a clean close, so that flag can be stuck
+    // stale as "open" - trusting it here would skip reconnecting exactly when it's
+    // needed. reconnectNow() closes any stale connection and opens a fresh one; once it
+    // (re)opens, handleOpen() rebinds room events and does the full peer resync below.
+    signallingRef.reconnectNow();
   });
 
   window.addEventListener('offline', () => {
@@ -606,9 +604,10 @@ export function manualReconnect(): void {
     showToast('Warning', 'Start the call first to reconnect.');
     return;
   }
-  if (signallingRef && !signallingRef.isOpen()) {
-    // Signalling itself is down (possibly mid-backoff) - force it to retry now rather
-    // than making the user wait it out. handleOpen() will resync peers once it's back.
+  if (signallingRef) {
+    // Always force a fresh signalling connection rather than trusting isOpen() - it can
+    // be stuck stale as "open" after a real network drop (see reconnectNow()'s comment).
+    // handleOpen() rebinds room events and resyncs peers once it (re)opens.
     signallingRef.reconnectNow();
   } else {
     attemptReconnect();
